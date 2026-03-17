@@ -12,16 +12,16 @@ export async function POST(req) {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: "TUEMAIL@gmail.com",
-      pass: "APP_PASSWORD"
-    }
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
   });
 
   await transporter.sendMail({
-    from: "Gestión 360 iA",
+    from: `"Gestión 360 iA" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: "Acceso aprobado",
-    text: "Tu cuenta ya fue aprobada. Ya podés ingresar."
+    text: "Tu cuenta ya fue aprobada. Ya podés ingresar.",
   });
 
   return Response.json({ ok: true });
