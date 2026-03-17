@@ -1,5 +1,4 @@
-import db from "@/lib/db";
-
+import db from "../../../lib/db";
 export async function POST(req) {
   try {
     const { nombre, email } = await req.json();
