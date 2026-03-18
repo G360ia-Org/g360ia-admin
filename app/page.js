@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 
 export default function HomePage() {
   const { data: session, status } = useSession();
@@ -21,46 +21,24 @@ export default function HomePage() {
     } catch (_) {}
   }, []);
 
-  const openAuthPopup = () => {
+  const handleLogin = () => {
     setLoading(true);
-    const width = 480, height = 560;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
-    const popup = window.open(
-      "/api/auth/signin/google?callbackUrl=" + encodeURIComponent(window.location.origin + "/auth-callback"),
-      "g360_auth",
-      `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=no,resizable=no`
-    );
-    const handler = (event) => {
-      if (event.origin !== window.location.origin) return;
-      if (event.data?.type === "AUTH_SUCCESS") {
-        window.removeEventListener("message", handler);
-        try { localStorage.setItem("g360_last_user", JSON.stringify(event.data.user)); } catch(_) {}
-        setLoading(false);
-        window.location.href = "https://www.gestion360ia.com.ar/main.html";
-      }
-      if (event.data?.type === "AUTH_PENDING") {
-        window.removeEventListener("message", handler);
-        setLoading(false);
-        window.location.href = "/pendiente";
-      }
-    };
-    window.addEventListener("message", handler);
-    const interval = setInterval(() => {
-      if (popup?.closed) {
-        clearInterval(interval);
-        window.removeEventListener("message", handler);
-        setLoading(false);
-      }
-    }, 500);
+    signIn("google", { callbackUrl: "https://www.gestion360ia.com.ar/main.html" });
   };
 
   const handleContinue = () => {
     if (status === "authenticated") {
+      try {
+        localStorage.setItem("g360_last_user", JSON.stringify({
+          name: session.user.name,
+          email: session.user.email,
+          image: session.user.image,
+        }));
+      } catch (_) {}
       window.location.href = "https://www.gestion360ia.com.ar/main.html";
       return;
     }
-    openAuthPopup();
+    handleLogin();
   };
 
   const handleForgetUser = () => {
@@ -70,7 +48,6 @@ export default function HomePage() {
 
   return (
     <>
-      {/* Splash inyectado solo en esta página */}
       <div id="g360splash" style={{
         position:"fixed",inset:0,background:"#F2F4F6",
         display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
@@ -88,7 +65,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Card login */}
       <div className={`main-wrap ${visible ? "main-show" : ""}`}>
         <div className="card">
           <div className="logo">
@@ -120,7 +96,7 @@ export default function HomePage() {
           ) : (
             <div className="login-wrap">
               <p className="login-hint">Ingresá con tu cuenta de Google autorizada.</p>
-              <button className="btn-primary" onClick={openAuthPopup} disabled={loading}>
+              <button className="btn-primary" onClick={handleLogin} disabled={loading}>
                 {loading ? <><Spinner /> Conectando...</> : <><GoogleIcon /> Acceder con Google</>}
               </button>
             </div>
@@ -227,7 +203,7 @@ export default function HomePage() {
       if(s) setTimeout(function(){s.style.opacity='1';},400);
       if(d) setTimeout(function(){d.style.opacity='1';},800);
     }
-    if(elapsed < 7200){
+    if(elapsed<7200){
       requestAnimationFrame(draw);
     } else {
       var splash=document.getElementById('g360splash');
