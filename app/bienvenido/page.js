@@ -16,7 +16,7 @@ export default function Bienvenido() {
           image: session.user.image,
         }));
       } catch (_) {}
-      window.location.href = "https://www.gestion360ia.com.ar/main.html";
+      window.location.href = "/dashboard";
     } else {
       window.location.href = "/";
     }
