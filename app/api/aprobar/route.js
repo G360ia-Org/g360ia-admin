@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import db from "../../../lib/db";
 import nodemailer from "nodemailer";
@@ -14,13 +16,13 @@ export async function GET(req) {
       });
     }
 
-    // 🔹 Aprobar usuario
+    // Aprobar usuario
     await db.query(
       "UPDATE usuarios SET status = 'approved' WHERE email = ?",
       [email]
     );
 
-    // 🔹 Configurar transporte email
+    // Email
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -29,14 +31,12 @@ export async function GET(req) {
       },
     });
 
-    // 🔹 Enviar email
     await transporter.sendMail({
       from: `"Gestión 360 IA" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Acceso aprobado",
       html: `
         <h2>Tu acceso fue aprobado ✅</h2>
-        <p>Ya podés ingresar a la plataforma:</p>
         <a href="https://gestion360ia.com.ar">Ingresar</a>
       `,
     });
