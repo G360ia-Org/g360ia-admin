@@ -795,6 +795,12 @@ function ViewSistema() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id, email, nombre }),
         });
+      } else if (cambios.status === "rejected") {
+        await fetch("/api/usuarios/rechazar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, email, nombre }),
+        });
       } else {
         await fetch("/api/usuarios", {
           method: "PATCH",
