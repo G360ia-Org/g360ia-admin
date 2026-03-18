@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 
 const VIEWS = {
@@ -14,6 +14,7 @@ const VIEWS = {
   integraciones:  ["Integraciones",    "Conexiones externas"],
   auditoria:      ["Auditoría",        "Registro de actividad"],
   configuracion:  ["Configuración",    "Ajustes del sistema"],
+  sistema:        ["Sistema",          "Usuarios, permisos y accesos"],
 };
 
 export default function DashboardPage() {
@@ -63,6 +64,7 @@ export default function DashboardPage() {
 
             <div className="sb-divider" />
             <div className="sb-sec">Sistema</div>
+            <NavItem id="sistema"        icon="bi-shield-lock"    label="Usuarios"       active={view==="sistema"}        onClick={nav} />
             <NavItem id="integraciones"  icon="bi-plug"           label="Integraciones"  active={view==="integraciones"}  onClick={nav} />
             <NavItem id="auditoria"      icon="bi-journal-text"   label="Auditoría"      active={view==="auditoria"}      onClick={nav} />
             <NavItem id="configuracion"  icon="bi-gear"           label="Configuración"  active={view==="configuracion"}  onClick={nav} />
@@ -111,6 +113,7 @@ export default function DashboardPage() {
             {view === "integraciones"  && <ViewIntegraciones />}
             {view === "auditoria"      && <ViewAuditoria />}
             {view === "configuracion"  && <ViewConfiguracion />}
+            {view === "sistema"        && <ViewSistema />}
           </div>
         </div>
       </div>
@@ -760,6 +763,214 @@ function ViewConfiguracion() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ViewSistema() {
+  const [usuarios, setUsuarios] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(null);
+  const [tab, setTab] = useState("todos");
+
+  const cargar = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/usuarios");
+      const data = await res.json();
+      if (data.ok) setUsuarios(data.usuarios);
+    } catch (_) {}
+    setLoading(false);
+  };
+
+  useEffect(() => { cargar(); }, []);
+
+  const actualizar = async (id, cambios, email, nombre) => {
+    setSaving(id);
+    try {
+      if (cambios.status === "approved") {
+        await fetch("/api/usuarios/aprobar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, email, nombre }),
+        });
+      } else {
+        await fetch("/api/usuarios", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, ...cambios }),
+        });
+      }
+      await cargar();
+    } catch (_) {}
+    setSaving(null);
+  };
+
+  const eliminar = async (id, nombre) => {
+    if (!confirm(`¿Eliminar a ${nombre || "este usuario"}?`)) return;
+    setSaving(id);
+    try {
+      await fetch("/api/usuarios", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      await cargar();
+    } catch (_) {}
+    setSaving(null);
+  };
+
+  const STATUS_BADGE = {
+    approved: { cls: "bdg-em",    label: "Aprobado" },
+    pending:  { cls: "bdg-amber", label: "Pendiente" },
+    rejected: { cls: "bdg-red",   label: "Rechazado" },
+  };
+
+  const pendientes = usuarios.filter(u => u.status === "pending");
+  const lista = tab === "pendientes" ? pendientes : usuarios;
+
+  return (
+    <div className="view-anim">
+      <div className="vh">
+        <div>
+          <div className="vh-title">Usuarios y Permisos</div>
+          <div className="vh-sub">{usuarios.length} usuarios · {pendientes.length} pendientes de aprobación</div>
+        </div>
+        <button className="btn btn-out btn-sm" onClick={cargar}>
+          <i className="bi bi-arrow-clockwise" /> Actualizar
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{display:"flex",gap:4,marginBottom:"0.9rem",borderBottom:"1px solid var(--border)"}}>
+        {[["todos","Todos","bi-people"],["pendientes","Pendientes","bi-hourglass-split"]].map(([id,label,icon]) => (
+          <button key={id} onClick={() => setTab(id)} style={{
+            padding:"0.45rem 0.9rem", border:"none", background:"none",
+            fontFamily:"inherit", fontSize:"0.8rem",
+            fontWeight: tab===id ? 700 : 500,
+            color: tab===id ? "var(--pr)" : "var(--sub)",
+            cursor:"pointer",
+            borderBottom: tab===id ? "2px solid var(--pr)" : "2px solid transparent",
+            display:"flex", alignItems:"center", gap:5, marginBottom:-1,
+          }}>
+            <i className={`bi ${icon}`} />{label}
+            {id==="pendientes" && pendientes.length > 0 && (
+              <span style={{background:"var(--red)",color:"#fff",fontSize:"0.57rem",fontWeight:700,padding:"0.1rem 0.4rem",borderRadius:9,marginLeft:2}}>{pendientes.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="card">
+        {loading ? (
+          <div style={{padding:"2.5rem",textAlign:"center",color:"var(--muted)"}}>
+            <i className="bi bi-hourglass-split" style={{fontSize:"1.4rem",display:"block",marginBottom:8}} />
+            Cargando usuarios...
+          </div>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Estado</th>
+                <th>Activo</th>
+                <th>Último acceso</th>
+                <th>Registrado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lista.length === 0 ? (
+                <tr><td colSpan={7} style={{textAlign:"center",padding:"2rem",color:"var(--muted)"}}>
+                  {tab === "pendientes" ? "No hay solicitudes pendientes" : "No hay usuarios registrados"}
+                </td></tr>
+              ) : lista.map(u => (
+                <tr key={u.id}>
+                  <td>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{width:28,height:28,borderRadius:"50%",background:"var(--pr-pale)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",fontWeight:700,color:"var(--pr)",flexShrink:0}}>
+                        {u.nombre?.[0]?.toUpperCase() ?? "?"}
+                      </div>
+                      <div>
+                        <div style={{fontWeight:600,fontSize:"0.8rem"}}>{u.nombre || "—"}</div>
+                        <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{u.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <select
+                      value={u.rol}
+                      disabled={saving === u.id}
+                      onChange={e => actualizar(u.id, { rol: e.target.value }, u.email, u.nombre)}
+                      style={{padding:"0.25rem 0.5rem",borderRadius:"var(--r-sm)",border:"1px solid var(--border2)",fontSize:"0.75rem",fontFamily:"inherit",background:"var(--white)",cursor:"pointer"}}
+                    >
+                      <option value="superadmin">Superadmin</option>
+                      <option value="admin">Admin</option>
+                      <option value="vendedor">Vendedor</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
+                  </td>
+                  <td>
+                    <span className={`bdg ${STATUS_BADGE[u.status]?.cls ?? "bdg-moon"}`}>
+                      {STATUS_BADGE[u.status]?.label ?? u.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div
+                      className={`tog${u.activo ? " on" : ""}`}
+                      onClick={() => saving !== u.id && actualizar(u.id, { activo: u.activo ? 0 : 1 }, u.email, u.nombre)}
+                      style={{cursor: saving===u.id ? "not-allowed" : "pointer"}}
+                    >
+                      <div className="tog-k" />
+                    </div>
+                  </td>
+                  <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>
+                    {u.ultimo_acceso ? new Date(u.ultimo_acceso).toLocaleDateString("es-AR") : "Nunca"}
+                  </td>
+                  <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>
+                    {new Date(u.creado_en).toLocaleDateString("es-AR")}
+                  </td>
+                  <td>
+                    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                      {u.status === "pending" && (
+                        <>
+                          <button className="btn btn-em btn-xs" disabled={saving===u.id}
+                            onClick={() => actualizar(u.id, {status:"approved"}, u.email, u.nombre)}>
+                            <i className="bi bi-check-lg" /> Aprobar
+                          </button>
+                          <button className="btn btn-xs btn-out" disabled={saving===u.id}
+                            onClick={() => actualizar(u.id, {status:"rejected",activo:0}, u.email, u.nombre)}>
+                            <i className="bi bi-x-lg" /> Rechazar
+                          </button>
+                        </>
+                      )}
+                      {u.status === "approved" && (
+                        <button className="btn btn-xs btn-out" disabled={saving===u.id}
+                          onClick={() => actualizar(u.id, {status:"rejected",activo:0}, u.email, u.nombre)}>
+                          <i className="bi bi-slash-circle" /> Revocar
+                        </button>
+                      )}
+                      {u.status === "rejected" && (
+                        <button className="btn btn-xs btn-out" disabled={saving===u.id}
+                          onClick={() => actualizar(u.id, {status:"approved",activo:1}, u.email, u.nombre)}>
+                          <i className="bi bi-arrow-counterclockwise" /> Restaurar
+                        </button>
+                      )}
+                      <button
+                        className="btn btn-xs" disabled={saving===u.id}
+                        onClick={() => eliminar(u.id, u.nombre)}
+                        style={{background:"var(--red-bg)",color:"var(--red)",border:"1px solid #f5c6c6"}}>
+                        <i className="bi bi-trash3" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
