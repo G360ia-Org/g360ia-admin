@@ -64,19 +64,7 @@ const handler = NextAuth({
     },
 
     async redirect({ url, baseUrl }) {
-      // Si es pendiente, ir a /pendiente
-      if (url.startsWith("/pendiente") || url.includes("/pendiente")) {
-        return `${baseUrl}/pendiente`;
-      }
-      // Si el callbackUrl apunta a /auth-callback, respetarlo
-      if (url.includes("/auth-callback")) {
-        return url.startsWith("http") ? url : `${baseUrl}${url}`;
-      }
-      // Si es una URL relativa válida del mismo dominio
-      if (url.startsWith(baseUrl)) {
-        return url;
-      }
-      // Default: ir a main
+      if (url.includes("/pendiente")) return `${baseUrl}/pendiente`;
       return "https://www.gestion360ia.com.ar/main.html";
     },
   },
