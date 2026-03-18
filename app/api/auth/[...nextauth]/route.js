@@ -1,8 +1,12 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import db from "../../../../lib/db";
 
 const handler = NextAuth({
+  trustHost: true,
+
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -11,7 +15,7 @@ const handler = NextAuth({
   ],
 
   pages: {
-    signIn: "/", // tu home
+    signIn: "/",
   },
 
   callbacks: {
@@ -38,7 +42,6 @@ const handler = NextAuth({
           ]
         );
 
-        // 🔥 lo mandamos a pantalla pendiente
         return "/pendiente";
       }
 
@@ -52,8 +55,7 @@ const handler = NextAuth({
       return true;
     },
 
-    async redirect({ url, baseUrl }) {
-      // 🔥 siempre redirige al panel final
+    async redirect() {
       return "https://gestion360ia.com.ar/main.html";
     },
   },
