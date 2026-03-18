@@ -65,7 +65,7 @@ const handler = NextAuth({
 
     async redirect({ url, baseUrl }) {
       if (url.includes("/pendiente")) return `${baseUrl}/pendiente`;
-      return "https://www.gestion360ia.com.ar/main.html";
+      return `${baseUrl}/bienvenido`;
     },
   },
 
