@@ -119,9 +119,9 @@ export default function RootLayout({ children }) {
       if(s) setTimeout(function(){s.style.opacity='1';},400);
       if(d) setTimeout(function(){d.style.opacity='1';},800);
     }
-    if(elapsed < 4200){
+    if(elapsed < 7200){
       rafId=requestAnimationFrame(draw);
-    } else {
+    } else if(elapsed >= 7200) {
       var splash=document.getElementById('g360splash');
       if(splash){
         splash.style.transition='opacity .5s ease';
