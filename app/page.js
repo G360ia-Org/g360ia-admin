@@ -6,18 +6,14 @@ import { useRouter } from "next/navigation";
 
 export default function HomePage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
-  const [showSplash, setShowSplash] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [visible, setVisible] = useState(false);
   const [rememberedUser, setRememberedUser] = useState(null);
-  const [splashDone, setSplashDone] = useState(false);
 
+  // Mostrar la card después de 3s (en sync con el splash del layout)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-      setSplashDone(true);
-    }, 3000);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setVisible(true), 3000);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -27,34 +23,18 @@ export default function HomePage() {
     } catch (_) {}
   }, []);
 
-  // Solo redirigir DESPUÉS del splash y cuando el usuario hace click
-  // No auto-redirigir al cargar la página
   const handleLogin = async () => {
     setLoading(true);
-    const result = await signIn("google", { redirect: false, callbackUrl: "/" });
-    if (result?.ok) {
-      try {
-        if (session?.user) {
-          localStorage.setItem("g360_last_user", JSON.stringify({
-            name: session.user.name,
-            email: session.user.email,
-            image: session.user.image,
-          }));
-        }
-      } catch (_) {}
-      window.location.href = "https://www.gestion360ia.com.ar/main.html";
-    }
+    await signIn("google", { redirect: false, callbackUrl: "/" });
     setLoading(false);
   };
 
   const handleContinue = async () => {
     setLoading(true);
-    // Si ya hay sesión activa, ir directo
     if (status === "authenticated") {
       window.location.href = "https://www.gestion360ia.com.ar/main.html";
       return;
     }
-    // Si no, hacer login
     await signIn("google", { redirect: false, callbackUrl: "/" });
     setLoading(false);
   };
@@ -66,28 +46,15 @@ export default function HomePage() {
 
   return (
     <>
-      <div id="splash" className={showSplash ? "" : "splash-hide"}>
-        <div className="splash-logo-mark">
-          <G360SVG size="lg" />
-        </div>
-        <div className="splash-name">Gestión 360 iA</div>
-        <div className="splash-sub">Software Modular Integrado con iA</div>
-        <div className="splash-dots">
-          <div className="splash-dot" />
-          <div className="splash-dot" style={{ animationDelay: ".2s" }} />
-          <div className="splash-dot" style={{ animationDelay: ".4s" }} />
-        </div>
-      </div>
-
-      <div className={`main-wrap ${splashDone ? "main-show" : ""}`}>
+      <div className={`main-wrap ${visible ? "main-show" : ""}`}>
         <div className="card">
           <div className="logo">
             <div className="logo-mark">
-              <G360SVG size="sm" />
+              <G360SVG />
             </div>
             <div>
               <div className="logo-name">Gestión 360 <span className="gold">iA</span></div>
-              <div className="logo-sub-card">Software Modular Integrado con iA</div>
+              <div className="logo-sub">Software Modular Integrado con iA</div>
             </div>
           </div>
 
@@ -126,27 +93,6 @@ export default function HomePage() {
       </div>
 
       <style jsx global>{`
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; background: #F2F4F6; min-height: 100vh; }
-
-        #splash {
-          position: fixed; inset: 0; background: #F2F4F6;
-          display: flex; align-items: center; justify-content: center;
-          flex-direction: column; gap: 1.1rem; z-index: 100;
-          transition: opacity .5s ease;
-        }
-        #splash.splash-hide { opacity: 0; pointer-events: none; }
-
-        .splash-logo-mark {
-          width: 72px; height: 72px; background: #506886; border-radius: 18px;
-          display: flex; align-items: center; justify-content: center;
-          animation: splashPop .5s cubic-bezier(.34,1.56,.64,1) forwards;
-        }
-        .splash-name { font-size: 1.2rem; font-weight: 600; color: #1F2937; opacity: 0; animation: fadeUp .4s ease .3s forwards; }
-        .splash-sub { font-size: 0.72rem; color: #9CA3AF; letter-spacing: .08em; text-transform: uppercase; opacity: 0; animation: fadeUp .4s ease .5s forwards; }
-        .splash-dots { display: flex; gap: 6px; opacity: 0; animation: fadeUp .4s ease .7s forwards; }
-        .splash-dot { width: 6px; height: 6px; border-radius: 50%; background: #C5CDD6; animation: dotPulse 1.2s ease infinite; }
-
         .main-wrap {
           min-height: 100vh; display: flex; align-items: center; justify-content: center;
           padding: 2rem; opacity: 0; transform: translateY(20px);
@@ -167,7 +113,7 @@ export default function HomePage() {
         }
         .logo-name { font-size: 1.05rem; font-weight: 600; color: #1F2937; }
         .gold { color: #B08A55; }
-        .logo-sub-card { font-size: 0.68rem; color: #9CA3AF; letter-spacing: .05em; text-transform: uppercase; margin-top: 2px; }
+        .logo-sub { font-size: 0.68rem; color: #9CA3AF; letter-spacing: .05em; text-transform: uppercase; margin-top: 2px; }
         .divider { height: 1px; background: #F3F4F6; margin-bottom: 20px; }
 
         .login-wrap { display: flex; flex-direction: column; gap: 14px; }
@@ -204,30 +150,14 @@ export default function HomePage() {
           cursor: pointer; transition: background .15s, color .15s; font-family: inherit;
         }
         .btn-ghost:hover { background: #F9FAFB; color: #374151; }
-
-        @keyframes splashPop {
-          from { transform: scale(.5); opacity: 0; }
-          to   { transform: scale(1);  opacity: 1; }
-        }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes dotPulse {
-          0%,100% { background: #C5CDD6; transform: scale(1); }
-          50%     { background: #506886; transform: scale(1.3); }
-        }
       `}</style>
     </>
   );
 }
 
-function G360SVG({ size }) {
-  const lg = size === "lg";
-  const w = lg ? 36 : 22;
-  const h = lg ? 30 : 18;
+function G360SVG() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 18" width={w} height={h}>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 18" width="22" height="18">
       <rect x="0"  y="10" width="6" height="6" rx="1.5" fill="white" opacity=".35"/>
       <rect x="0"  y="5"  width="6" height="6" rx="1.5" fill="white" opacity=".6"/>
       <rect x="0"  y="0"  width="6" height="6" rx="1.5" fill="white"/>
