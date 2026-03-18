@@ -10,9 +10,13 @@ export default function HomePage() {
   const [showSplash, setShowSplash] = useState(true);
   const [loading, setLoading] = useState(false);
   const [rememberedUser, setRememberedUser] = useState(null);
+  const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 3000);
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+      setSplashDone(true);
+    }, 3000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -23,21 +27,34 @@ export default function HomePage() {
     } catch (_) {}
   }, []);
 
-  useEffect(() => {
-    if (status === "authenticated" && session?.user) {
-      try {
-        localStorage.setItem("g360_last_user", JSON.stringify({
-          name: session.user.name,
-          email: session.user.email,
-          image: session.user.image,
-        }));
-      } catch (_) {}
-      router.push("https://www.gestion360ia.com.ar/main.html");
-    }
-  }, [status, session]);
-
+  // Solo redirigir DESPUÉS del splash y cuando el usuario hace click
+  // No auto-redirigir al cargar la página
   const handleLogin = async () => {
     setLoading(true);
+    const result = await signIn("google", { redirect: false, callbackUrl: "/" });
+    if (result?.ok) {
+      try {
+        if (session?.user) {
+          localStorage.setItem("g360_last_user", JSON.stringify({
+            name: session.user.name,
+            email: session.user.email,
+            image: session.user.image,
+          }));
+        }
+      } catch (_) {}
+      window.location.href = "https://www.gestion360ia.com.ar/main.html";
+    }
+    setLoading(false);
+  };
+
+  const handleContinue = async () => {
+    setLoading(true);
+    // Si ya hay sesión activa, ir directo
+    if (status === "authenticated") {
+      window.location.href = "https://www.gestion360ia.com.ar/main.html";
+      return;
+    }
+    // Si no, hacer login
     await signIn("google", { redirect: false, callbackUrl: "/" });
     setLoading(false);
   };
@@ -62,7 +79,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className={`main-wrap ${showSplash ? "" : "main-show"}`}>
+      <div className={`main-wrap ${splashDone ? "main-show" : ""}`}>
         <div className="card">
           <div className="logo">
             <div className="logo-mark">
@@ -89,7 +106,7 @@ export default function HomePage() {
                   <span className="remembered-email">{rememberedUser.email}</span>
                 </div>
               </div>
-              <button className="btn-primary" onClick={handleLogin} disabled={loading}>
+              <button className="btn-primary" onClick={handleContinue} disabled={loading}>
                 {loading ? "Conectando..." : "Continuar con esta cuenta"}
               </button>
               <button className="btn-ghost" onClick={handleForgetUser}>
