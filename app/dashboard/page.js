@@ -217,7 +217,7 @@ export default function DashboardPage() {
             {view === "dashboard"      && <ViewDashboard />}
             {view === "clientes"       && <ViewClientes />}
             {view === "ventas"         && <ViewVentas session={session} />}
-            {view === "conversaciones" && <ViewConversaciones session={session} />}
+{view === "conversaciones" && <ViewConversaciones session={session} onNavegar={nav} />}
             {view === "vendedores"     && <ViewVendedores />}
             {view === "soporte"        && <ViewSoporte session={session} />}
             {view === "modulos"        && <ViewModulos />}
@@ -225,7 +225,7 @@ export default function DashboardPage() {
             {view === "comunicaciones" && <ViewComunicaciones />}
             {view === "seguimiento"    && <ViewSeguimiento />}
             {view === "alertas"        && <ViewAlertas />}
-            {view === "integraciones"  && <ViewIntegraciones />}
+{view === "integraciones"  && <ViewIntegraciones onNavegar={nav} />}
             {view === "auditoria"      && <ViewAuditoria />}
             {view === "configuracion"  && <ViewConfiguracion />}
             {view === "sistema"        && <ViewSistema />}
