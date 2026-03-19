@@ -9,14 +9,23 @@ export default function Bienvenido() {
   useEffect(() => {
     if (status === "loading") return;
     if (status === "authenticated" && session?.user) {
-      try {
-        localStorage.setItem("g360_last_user", JSON.stringify({
-          name: session.user.name,
-          email: session.user.email,
-          image: session.user.image,
-        }));
-      } catch (_) {}
-      window.location.href = "/dashboard";
+      const continuar = async () => {
+        try {
+          localStorage.setItem("g360_last_user", JSON.stringify({
+            name: session.user.name,
+            email: session.user.email,
+            image: session.user.image,
+          }));
+        } catch (_) {}
+
+        // Registrar sesión con IP y dispositivo real
+        try {
+          await fetch("/api/perfil/sesiones", { method: "POST" });
+        } catch (_) {}
+
+        window.location.href = "/dashboard";
+      };
+      continuar();
     } else {
       window.location.href = "/";
     }
