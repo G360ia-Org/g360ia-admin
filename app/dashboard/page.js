@@ -23,11 +23,20 @@ export default function DashboardPage() {
   const [view, setView] = useState("dashboard");
   const [collapsed, setCollapsed] = useState(false);
   const [menuUsuario, setMenuUsuario] = useState(false);
+  const [stats, setStats] = useState({ clientes: null, alertas: null, conversaciones: null });
   const menuRef = useRef(null);
 
   const nav = (id) => setView(id);
   const userName = session?.user?.name || "Admin";
   const userInitial = userName[0]?.toUpperCase() || "A";
+
+  // Cargar badges del sidebar
+  useEffect(() => {
+    fetch("/api/stats/sidebar")
+      .then(r => r.json())
+      .then(d => { if (d.ok) setStats({ clientes: d.clientes, alertas: d.alertas, conversaciones: d.conversaciones }); })
+      .catch(() => {});
+  }, []);
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -65,15 +74,15 @@ export default function DashboardPage() {
           <div className="sb-scroll">
             <div className="sb-sec">Principal</div>
             <NavItem id="dashboard"      icon="bi-grid-1x2"      label="Dashboard"      active={view==="dashboard"}      onClick={nav} />
-            <NavItem id="clientes"       icon="bi-people"         label="Clientes"       active={view==="clientes"}       onClick={nav} badge="24" />
+            <NavItem id="clientes"       icon="bi-people"         label="Clientes"       active={view==="clientes"}       onClick={nav} badge={stats.clientes > 0 ? String(stats.clientes) : null} />
             <NavItem id="modulos"        icon="bi-puzzle"         label="Módulos"        active={view==="modulos"}        onClick={nav} />
             <NavItem id="planes"         icon="bi-tag"            label="Planes"         active={view==="planes"}         onClick={nav} />
 
             <div className="sb-divider" />
             <div className="sb-sec">Comunicaciones</div>
-            <NavItem id="comunicaciones" icon="bi-chat-dots"      label="Conversaciones" active={view==="comunicaciones"} onClick={nav} badge="3" badgeClass="amber" />
+            <NavItem id="comunicaciones" icon="bi-chat-dots"      label="Conversaciones" active={view==="comunicaciones"} onClick={nav} badge={stats.conversaciones > 0 ? String(stats.conversaciones) : null} badgeClass="amber" />
             <NavItem id="seguimiento"    icon="bi-check2-square"  label="Seguimiento"    active={view==="seguimiento"}    onClick={nav} />
-            <NavItem id="alertas"        icon="bi-bell"           label="Alertas IA"     active={view==="alertas"}        onClick={nav} badge="5" badgeClass="red" />
+            <NavItem id="alertas"        icon="bi-bell"           label="Alertas IA"     active={view==="alertas"}        onClick={nav} badge={stats.alertas > 0 ? String(stats.alertas) : null} badgeClass="red" />
 
             <div className="sb-divider" />
             <div className="sb-sec">Sistema</div>
