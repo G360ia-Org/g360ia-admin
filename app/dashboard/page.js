@@ -6,7 +6,10 @@ import { useSession, signOut } from "next-auth/react";
 const VIEWS = {
   dashboard:      ["Dashboard",        "Resumen general del sistema"],
   clientes:       ["Clientes",         "Tenants registrados"],
-  ventas:         ["Ventas",           "Leads y seguimiento comercial"],
+  ventas:         ["Ventas",           "Pipeline comercial"],
+  conversaciones: ["Conversaciones",   "Mensajes entrantes y seguimiento"],
+  vendedores:     ["Vendedores",       "Equipo comercial y rendimiento"],
+  soporte:        ["Soporte",          "Tickets y atención a clientes"],
   modulos:        ["Módulos",          "Catálogo del sistema"],
   planes:         ["Planes",           "Gestión de suscripciones"],
   comunicaciones: ["Comunicaciones",   "Conversaciones con clientes"],
@@ -24,22 +27,36 @@ export default function DashboardPage() {
   const [view, setView] = useState("dashboard");
   const [collapsed, setCollapsed] = useState(false);
   const [menuUsuario, setMenuUsuario] = useState(false);
-  const [stats, setStats] = useState({ clientes: null, alertas: null, conversaciones: null });
+  const [stats, setStats] = useState({
+    clientes_activos: null,
+    trials_vencidos: null,
+    conv_sin_asignar: null,
+    tickets_urgentes: null,
+    usuarios_pendientes: null,
+  });
   const menuRef = useRef(null);
 
   const nav = (id) => setView(id);
   const userName = session?.user?.name || "Admin";
   const userInitial = userName[0]?.toUpperCase() || "A";
+  const rol = session?.user?.rol || "superadmin";
+  const esVendedor = rol === "vendedor";
 
-  // Cargar badges del sidebar
   useEffect(() => {
     fetch("/api/stats/sidebar")
       .then(r => r.json())
-      .then(d => { if (d.ok) setStats({ clientes: d.clientes, alertas: d.alertas, conversaciones: d.conversaciones }); })
+      .then(d => {
+        setStats({
+          clientes_activos: d.clientes_activos ?? null,
+          trials_vencidos: d.trials_vencidos ?? null,
+          conv_sin_asignar: d.conv_sin_asignar ?? null,
+          tickets_urgentes: d.tickets_urgentes ?? null,
+          usuarios_pendientes: d.usuarios_pendientes ?? null,
+        });
+      })
       .catch(() => {});
   }, []);
 
-  // Cerrar dropdown al hacer click fuera
   useEffect(() => {
     function handleClick(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -49,6 +66,8 @@ export default function DashboardPage() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  const noSidebar = ["comunicaciones"].includes(view);
 
   return (
     <>
@@ -73,118 +92,104 @@ export default function DashboardPage() {
           </div>
 
           <div className="sb-scroll">
+
+            {/* PRINCIPAL */}
             <div className="sb-sec">Principal</div>
-            <NavItem id="dashboard"      icon="bi-grid-1x2"      label="Dashboard"      active={view==="dashboard"}      onClick={nav} />
-            <NavItem id="clientes"       icon="bi-people"         label="Clientes"       active={view==="clientes"}       onClick={nav} badge={stats.clientes > 0 ? String(stats.clientes) : null} />
-            <NavItem id="ventas"         icon="bi-graph-up-arrow" label="Ventas"         active={view==="ventas"}         onClick={nav} />
-            <NavItem id="modulos"        icon="bi-puzzle"         label="Módulos"        active={view==="modulos"}        onClick={nav} incoming />
-            <NavItem id="planes"         icon="bi-tag"            label="Planes"         active={view==="planes"}         onClick={nav} incoming />
+            <NavItem id="dashboard" icon="bi-grid-1x2" label="Dashboard" active={view==="dashboard"} onClick={nav} />
+            {!esVendedor && (
+              <NavItem id="clientes" icon="bi-people" label="Clientes" active={view==="clientes"} onClick={nav}
+                badge={stats.clientes_activos > 0 ? String(stats.clientes_activos) : null} />
+            )}
 
+            {/* VENTAS */}
             <div className="sb-divider" />
-            <div className="sb-sec">Comunicaciones</div>
-            <NavItem id="comunicaciones" icon="bi-chat-dots"      label="Conversaciones" active={view==="comunicaciones"} onClick={nav} badge={stats.conversaciones > 0 ? String(stats.conversaciones) : null} badgeClass="amber" incoming={!stats.conversaciones} />
-            <NavItem id="seguimiento"    icon="bi-check2-square"  label="Seguimiento"    active={view==="seguimiento"}    onClick={nav} incoming />
-            <NavItem id="alertas"        icon="bi-bell"           label="Alertas IA"     active={view==="alertas"}        onClick={nav} badge={stats.alertas > 0 ? String(stats.alertas) : null} badgeClass="red" />
+            <div className="sb-sec">Ventas</div>
+            <NavItem id="ventas"         icon="bi-graph-up-arrow"  label="Pipeline / Leads"    active={view==="ventas"}         onClick={nav} />
+            <NavItem id="conversaciones" icon="bi-chat-dots"        label="Conversaciones"       active={view==="conversaciones"} onClick={nav}
+              badge={stats.conv_sin_asignar > 0 ? String(stats.conv_sin_asignar) : null} badgeClass="amber" />
+            <NavItem id="vendedores"     icon="bi-person-badge"     label="Vendedores"           active={view==="vendedores"}     onClick={nav} />
 
-            <div className="sb-divider" />
-            <div className="sb-sec">Sistema</div>
-            <NavItem id="sistema"        icon="bi-shield-lock"    label="Usuarios"       active={view==="sistema"}        onClick={nav} />
-            <NavItem id="integraciones"  icon="bi-plug"           label="Integraciones"  active={view==="integraciones"}  onClick={nav} incoming />
-            <NavItem id="auditoria"      icon="bi-journal-text"   label="Auditoría"      active={view==="auditoria"}      onClick={nav} />
-            <NavItem id="configuracion"  icon="bi-gear"           label="Configuración"  active={view==="configuracion"}  onClick={nav} incoming />
+            {/* SOPORTE — solo superadmin/admin */}
+            {!esVendedor && (
+              <>
+                <div className="sb-divider" />
+                <div className="sb-sec">Soporte</div>
+                <NavItem id="soporte" icon="bi-headset" label="Tickets" active={view==="soporte"} onClick={nav}
+                  badge={stats.tickets_urgentes > 0 ? String(stats.tickets_urgentes) : null} badgeClass="red" />
+              </>
+            )}
+
+            {/* COMUNICACIONES — solo superadmin */}
+            {!esVendedor && (
+              <>
+                <div className="sb-divider" />
+                <div className="sb-sec">Comunicaciones</div>
+                <NavItem id="comunicaciones" icon="bi-envelope"       label="Mensajes"       active={view==="comunicaciones"} onClick={nav} />
+                <NavItem id="seguimiento"    icon="bi-check2-square"  label="Seguimiento"    active={view==="seguimiento"}    onClick={nav} incoming />
+                <NavItem id="alertas"        icon="bi-bell"           label="Alertas IA"     active={view==="alertas"}        onClick={nav} />
+              </>
+            )}
+
+            {/* SISTEMA — solo superadmin */}
+            {!esVendedor && (
+              <>
+                <div className="sb-divider" />
+                <div className="sb-sec">Sistema</div>
+                <NavItem id="modulos"       icon="bi-puzzle"        label="Módulos"        active={view==="modulos"}       onClick={nav} incoming />
+                <NavItem id="planes"        icon="bi-tag"           label="Planes"         active={view==="planes"}        onClick={nav} incoming />
+                <NavItem id="sistema"       icon="bi-shield-lock"   label="Usuarios"       active={view==="sistema"}       onClick={nav}
+                  badge={stats.usuarios_pendientes > 0 ? String(stats.usuarios_pendientes) : null} badgeClass="red" />
+                <NavItem id="integraciones" icon="bi-plug"          label="Integraciones"  active={view==="integraciones"} onClick={nav} incoming />
+                <NavItem id="auditoria"     icon="bi-journal-text"  label="Auditoría"      active={view==="auditoria"}     onClick={nav} />
+                <NavItem id="configuracion" icon="bi-gear"          label="Configuración"  active={view==="configuracion"} onClick={nav} incoming />
+              </>
+            )}
           </div>
 
-          {/* ══ FOOTER USUARIO ══ */}
+          {/* FOOTER USUARIO */}
           <div className="sb-foot">
             <div ref={menuRef} style={{position:"relative"}}>
-
-              {/* Fila usuario */}
               <div style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.44rem 0.55rem",borderRadius:"var(--r-sm)"}}>
-
-                {/* Avatar — único trigger del dropdown */}
                 <div onClick={() => setMenuUsuario(m => !m)} style={{cursor:"pointer",flexShrink:0}}>
                   {session?.user?.image ? (
                     <img src={session.user.image} alt=""
                       style={{width:30,height:30,borderRadius:"50%",objectFit:"cover",display:"block",border:"2px solid rgba(255,255,255,.25)"}}
                       referrerPolicy="no-referrer" />
                   ) : (
-                    <div style={{
-                      width:30,height:30,borderRadius:"50%",
-                      background:"linear-gradient(135deg,var(--pr-d),var(--pr-l))",
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      fontSize:"0.72rem",fontWeight:700,color:"#fff",
-                      border:"2px solid rgba(255,255,255,.25)",
-                    }}>
+                    <div style={{width:30,height:30,borderRadius:"50%",background:"linear-gradient(135deg,var(--pr-d),var(--pr-l))",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.72rem",fontWeight:700,color:"#fff",border:"2px solid rgba(255,255,255,.25)"}}>
                       {userInitial}
                     </div>
                   )}
                 </div>
-
-                {/* Textos */}
                 <div className="sb-user-texts" style={{flex:1,minWidth:0}}>
                   <div className="sb-uname">{userName}</div>
-                  <div className="sb-urole">Superadmin · Pro</div>
+                  <div className="sb-urole">{rol === "superadmin" ? "Superadmin · Pro" : rol === "vendedor" ? "Vendedor" : "Admin"}</div>
                 </div>
               </div>
 
-              {/* Dropdown — position:fixed para escapar del overflow:hidden del sidebar */}
               {menuUsuario && (
-                <div style={{
-                  position:"fixed",
-                  bottom:64,
-                  left: collapsed ? 60 : 238,
-                  width:240,
-                  background:"#fff",
-                  border:"1px solid var(--border)",
-                  borderRadius:"var(--r)",
-                  boxShadow:"0 8px 32px rgba(30,50,80,.18)",
-                  zIndex:9999,
-                  overflow:"hidden",
-                }}>
-                  {/* Encabezado */}
+                <div style={{position:"fixed",bottom:64,left: collapsed ? 60 : 238,width:240,background:"#fff",border:"1px solid var(--border)",borderRadius:"var(--r)",boxShadow:"0 8px 32px rgba(30,50,80,.18)",zIndex:9999,overflow:"hidden"}}>
                   <div style={{padding:"0.9rem 1rem",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:"0.65rem",background:"var(--bg)"}}>
                     {session?.user?.image ? (
-                      <img src={session.user.image} alt=""
-                        style={{width:38,height:38,borderRadius:"50%",objectFit:"cover",border:"2px solid var(--border)",flexShrink:0}}
-                        referrerPolicy="no-referrer" />
+                      <img src={session.user.image} alt="" style={{width:38,height:38,borderRadius:"50%",objectFit:"cover",border:"2px solid var(--border)",flexShrink:0}} referrerPolicy="no-referrer" />
                     ) : (
-                      <div style={{width:38,height:38,borderRadius:"50%",background:"var(--pr)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.9rem",fontWeight:700,color:"#fff",flexShrink:0}}>
-                        {userInitial}
-                      </div>
+                      <div style={{width:38,height:38,borderRadius:"50%",background:"var(--pr)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.9rem",fontWeight:700,color:"#fff",flexShrink:0}}>{userInitial}</div>
                     )}
                     <div style={{minWidth:0}}>
                       <div style={{fontSize:"0.82rem",fontWeight:700,color:"var(--text)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{userName}</div>
                       <div style={{fontSize:"0.67rem",color:"var(--muted)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{session?.user?.email}</div>
                       <div style={{marginTop:3,display:"flex",gap:4}}>
-                        <span style={{background:"var(--pr-pale)",color:"var(--pr)",fontSize:"0.6rem",fontWeight:700,padding:"1px 7px",borderRadius:9}}>Superadmin</span>
+                        <span style={{background:"var(--pr-pale)",color:"var(--pr)",fontSize:"0.6rem",fontWeight:700,padding:"1px 7px",borderRadius:9}}>{rol === "vendedor" ? "Vendedor" : "Superadmin"}</span>
                         <span style={{background:"var(--em-pale)",color:"var(--em-d)",fontSize:"0.6rem",fontWeight:700,padding:"1px 7px",borderRadius:9}}>Pro</span>
                       </div>
                     </div>
                   </div>
-
-                  {/* Opciones */}
                   <div style={{padding:"0.3rem 0"}}>
-                    <DropdownItem
-                      icon="bi-person"
-                      label="Mi perfil"
-                      onClick={() => { setMenuUsuario(false); nav("perfil"); }}
-                    />
-                    <DropdownItem
-                      icon="bi-eye"
-                      label="Ver como cliente"
-                      onClick={() => setMenuUsuario(false)}
-                      muted
-                    />
+                    <DropdownItem icon="bi-person" label="Mi perfil" onClick={() => { setMenuUsuario(false); nav("perfil"); }} />
+                    {!esVendedor && <DropdownItem icon="bi-eye" label="Ver como cliente" onClick={() => setMenuUsuario(false)} muted />}
                   </div>
-
-                  {/* Cerrar sesión */}
                   <div style={{borderTop:"1px solid var(--border)",padding:"0.3rem 0"}}>
-                    <DropdownItem
-                      icon="bi-box-arrow-right"
-                      label="Cerrar sesión"
-                      onClick={() => signOut({ callbackUrl: "/" })}
-                      danger
-                    />
+                    <DropdownItem icon="bi-box-arrow-right" label="Cerrar sesión" onClick={() => signOut({ callbackUrl: "/" })} danger />
                   </div>
                 </div>
               )}
@@ -202,16 +207,19 @@ export default function DashboardPage() {
             <div className="tb-sp" />
             <div className="tb-search">
               <i className="bi bi-search" style={{color:"var(--muted)",fontSize:"0.78rem"}} />
-              <input placeholder="Buscar clientes, módulos…" />
+              <input placeholder="Buscar clientes, leads…" />
             </div>
             <button className="tb-btn"><i className="bi bi-bell" /><div className="dot" /></button>
             <button className="tb-btn"><i className="bi bi-question-circle" /></button>
           </div>
 
-          <div id="content" style={{padding: view==="comunicaciones" ? "0" : "1.3rem 1.4rem"}}>
+          <div id="content" style={{padding: ["comunicaciones","conversaciones"].includes(view) ? "0" : "1.3rem 1.4rem"}}>
             {view === "dashboard"      && <ViewDashboard />}
             {view === "clientes"       && <ViewClientes />}
-            {view === "ventas"         && <ViewVentas />}
+            {view === "ventas"         && <ViewVentas session={session} />}
+            {view === "conversaciones" && <ViewConversaciones session={session} />}
+            {view === "vendedores"     && <ViewVendedores />}
+            {view === "soporte"        && <ViewSoporte session={session} />}
             {view === "modulos"        && <ViewModulos />}
             {view === "planes"         && <ViewPlanes />}
             {view === "comunicaciones" && <ViewComunicaciones />}
@@ -248,12 +256,7 @@ export default function DashboardPage() {
         .g360-wrap { display:flex; height:100vh; overflow:hidden; }
 
         /* SIDEBAR */
-        #sb {
-          width:230px; min-width:230px; background:var(--sb-bg); border-right:1px solid var(--sb-brd);
-          display:flex; flex-direction:column; height:100vh; overflow:hidden; flex-shrink:0;
-          transition:width .22s cubic-bezier(.4,0,.2,1),min-width .22s cubic-bezier(.4,0,.2,1);
-          position:relative; z-index:20;
-        }
+        #sb { width:230px; min-width:230px; background:var(--sb-bg); border-right:1px solid var(--sb-brd); display:flex; flex-direction:column; height:100vh; overflow:hidden; flex-shrink:0; transition:width .22s cubic-bezier(.4,0,.2,1),min-width .22s cubic-bezier(.4,0,.2,1); position:relative; z-index:20; }
         #sb.collapsed { width:52px; min-width:52px; }
         .sb-logo { padding:0 0.9rem; height:50px; border-bottom:1px solid var(--sb-brd); display:flex; align-items:center; gap:0.7rem; flex-shrink:0; overflow:hidden; }
         .sb-logo-mark { width:30px; height:30px; flex-shrink:0; background:linear-gradient(135deg,var(--pr),var(--pr-l)); border-radius:8px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(80,104,134,.3); }
@@ -284,15 +287,11 @@ export default function DashboardPage() {
         #sb.collapsed .ni-badge { opacity:0; width:0; padding:0; overflow:hidden; }
         #sb.collapsed .ni[data-tip]:hover::after { content:attr(data-tip); position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%); background:var(--text); color:#fff; font-size:0.71rem; font-family:'Inter',sans-serif; padding:4px 9px; border-radius:6px; white-space:nowrap; pointer-events:none; z-index:300; box-shadow:0 3px 10px rgba(0,0,0,.18); }
         .sb-foot { margin-top:auto; border-top:1px solid var(--sb-brd); padding:8px 6px; flex-shrink:0; overflow:hidden; }
-        .sb-user { display:flex; align-items:center; white-space:nowrap; }
-        .sb-av { width:28px; height:28px; background:linear-gradient(135deg,var(--pr-d),var(--pr)); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.68rem; font-weight:700; color:#fff; flex-shrink:0; }
         .sb-uname { font-size:0.78rem; font-weight:600; color:#fff; }
         .sb-urole { font-size:0.6rem; color:var(--muted); }
         .sb-user-texts { overflow:hidden; white-space:nowrap; transition:opacity .15s,max-width .22s; max-width:180px; flex:1; }
         #sb.collapsed .sb-user-texts { opacity:0; max-width:0; }
         #sb.collapsed .sb-foot { padding:0.75rem 0; }
-        #sb.collapsed .sb-user { justify-content:center; padding:0.5rem 0; }
-        #sb.collapsed .sb-user-more { opacity:0; }
 
         /* MAIN */
         #main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
@@ -310,7 +309,7 @@ export default function DashboardPage() {
         #content::-webkit-scrollbar { width:4px; }
         #content::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
 
-        /* CARDS / GRIDS */
+        /* CARDS */
         .card { background:var(--white); border:1px solid var(--border); border-radius:var(--r); box-shadow:var(--sh); overflow:hidden; }
         .ch { padding:0.8rem 1rem; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:0.55rem; }
         .ch-title { font-weight:700; font-size:0.84rem; color:var(--text); }
@@ -341,9 +340,10 @@ export default function DashboardPage() {
         .bdg-blue { background:var(--blue-bg); color:var(--blue); }
         .bdg-pro { background:var(--em-pale); color:var(--em-d); border:1px solid var(--em-mid); }
         .bdg-str { background:var(--pine-bg); color:var(--pine-d); border:1px solid var(--pine-l); }
-        .sdot { display:inline-flex; align-items:center; gap:5px; font-size:0.78rem; }
-        .sd { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
-        .sd-on { background:var(--pr); } .sd-off { background:var(--muted); } .sd-warn { background:var(--amber); } .sd-red { background:var(--red); }
+        .bdg-urgente { background:#FDF2F2; color:#D9534F; border:1px solid #f5c6c6; }
+        .bdg-alta    { background:#FBF6EE; color:#B08A55; }
+        .bdg-media   { background:#EDF1F6; color:#506886; }
+        .bdg-baja    { background:var(--moon-l); color:var(--sub); }
 
         /* TABLE */
         .tbl { width:100%; border-collapse:collapse; }
@@ -362,107 +362,8 @@ export default function DashboardPage() {
         .btn-sm { padding:0.3rem 0.65rem; font-size:0.73rem; }
         .btn-xs { padding:0.18rem 0.5rem; font-size:0.67rem; }
         .btn-ghost { background:none; color:var(--sub); border:none; }
-        .btn-ghost:hover { color:var(--pr); background:var(--pr-pale); border-radius:var(--r-sm); }
 
-        /* ACTIVITY */
-        .act-row { display:flex; align-items:flex-start; gap:0.65rem; padding:0.55rem 0; border-bottom:1px solid var(--border); }
-        .act-row:last-child { border-bottom:none; }
-        .act-ico { width:28px; height:28px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.82rem; }
-        .act-txt { font-size:0.78rem; color:var(--text); line-height:1.4; }
-        .act-time { font-size:0.64rem; color:var(--muted); margin-top:0.1rem; display:flex; align-items:center; gap:3px; }
-
-        /* RISK */
-        .risk-row { display:flex; align-items:center; gap:0.5rem; padding:0.45rem 0; border-bottom:1px solid var(--border); }
-        .risk-row:last-child { border-bottom:none; }
-        .risk-name { font-size:0.78rem; font-weight:500; color:var(--text); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .risk-track { flex:1; height:5px; background:var(--border); border-radius:3px; overflow:hidden; }
-        .risk-fill { height:100%; border-radius:3px; background:var(--pr); }
-
-        /* AI CARD */
-        .ai-card { background:linear-gradient(135deg,#2A3F55,#3D5A78); border-radius:var(--r); padding:0.9rem 1rem; color:#fff; }
-        .ai-hdr { display:flex; align-items:center; gap:0.4rem; font-size:0.75rem; font-weight:700; color:rgba(255,255,255,.7); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.5rem; }
-        .ai-pulse { width:7px; height:7px; border-radius:50%; background:#4AB880; box-shadow:0 0 0 2px rgba(74,184,128,.3); }
-        .ai-txt { font-size:0.8rem; line-height:1.55; color:rgba(255,255,255,.9); margin-bottom:0.65rem; }
-        .ai-chips { display:flex; gap:0.4rem; flex-wrap:wrap; }
-        .ai-chip { display:inline-flex; align-items:center; gap:0.25rem; padding:0.22rem 0.6rem; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:20px; font-size:0.67rem; color:rgba(255,255,255,.85); }
-
-        /* BAR CHART */
-        .bc { display:flex; align-items:flex-end; gap:6px; height:90px; }
-        .bc-c { display:flex; flex-direction:column; align-items:center; gap:3px; flex:1; height:100%; justify-content:flex-end; }
-        .bc-b { width:100%; background:var(--pr-mid); border-radius:3px 3px 0 0; transition:background .2s; }
-        .bc-b.on { background:var(--pr); }
-        .bc-l { font-size:0.6rem; color:var(--muted); }
-
-        /* STAT ROW */
-        .st-row { display:flex; align-items:center; gap:0.5rem; padding:0.3rem 0; }
-        .st-lbl { font-size:0.72rem; color:var(--text2); width:90px; flex-shrink:0; }
-        .st-track { flex:1; height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
-        .st-fill { height:100%; border-radius:3px; background:var(--pr); }
-        .st-val { font-size:0.72rem; font-weight:600; color:var(--text); width:20px; text-align:right; flex-shrink:0; }
-
-        /* VH (View Header) */
-        .vh { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.9rem; }
-        .vh-title { font-family:'Fraunces',serif; font-size:1.1rem; font-weight:600; color:var(--text); }
-        .vh-sub { font-size:0.72rem; color:var(--muted); margin-top:2px; }
-
-        /* MODULE ROW */
-        .mod-row { display:flex; align-items:center; gap:0.65rem; padding:0.6rem 0; border-bottom:1px solid var(--border); }
-        .mod-row:last-child { border-bottom:none; }
-        .mod-ico { width:28px; height:28px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.82rem; background:var(--bg); }
-        .mod-row.enabled .mod-ico { background:var(--pr-pale); }
-        .mod-name { font-size:0.8rem; font-weight:600; color:var(--text); }
-        .mod-desc { font-size:0.67rem; color:var(--muted); }
-
-        /* TOGGLE */
-        .tog { width:32px; height:18px; border-radius:9px; background:var(--border2); position:relative; cursor:pointer; transition:background .18s; flex-shrink:0; }
-        .tog.on { background:var(--em); }
-        .tog-k { position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:#fff; transition:transform .18s; }
-        .tog.on .tog-k { transform:translateX(14px); }
-
-        /* PLAN CARD */
-        .plan-card { background:var(--white); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:var(--sh); }
-        .plan-hdr { padding:1rem 1.1rem 0.8rem; border-bottom:1px solid var(--border); }
-        .plan-name { font-family:'Fraunces',serif; font-size:1.1rem; font-weight:600; }
-        .plan-price { font-family:'Fraunces',serif; font-size:1.9rem; line-height:1; margin:0.5rem 0 0.2rem; letter-spacing:-0.02em; }
-        .plan-price span { font-size:0.8rem; font-weight:400; color:var(--muted); font-family:'Inter',sans-serif; }
-        .plan-feature { display:flex; align-items:center; gap:0.5rem; padding:0.38rem 1.1rem; font-size:0.77rem; color:var(--text2); border-bottom:1px solid var(--border); }
-        .plan-feature:last-of-type { border-bottom:none; }
-        .plan-feature.off { color:var(--muted); }
-        .plan-foot { padding:0.8rem 1.1rem; }
-
-        /* ALERT ROW */
-        .alert-row { display:flex; align-items:flex-start; gap:0.65rem; padding:0.62rem 0.8rem; border-left:3px solid var(--border); border-radius:0 var(--r-sm) var(--r-sm) 0; background:var(--white); margin-bottom:0.4rem; }
-        .alert-row.em { border-left-color:var(--em); background:var(--em-bg); }
-        .alert-row.warn { border-left-color:var(--amber); background:var(--amber-bg); }
-        .alert-row.red { border-left-color:var(--red); background:var(--red-bg); }
-        .alert-ico { font-size:0.85rem; flex-shrink:0; margin-top:0.1rem; }
-        .alert-txt { font-size:0.77rem; color:var(--text); line-height:1.4; flex:1; }
-
-        /* NOTA */
-        .nota { display:flex; align-items:flex-start; gap:0.6rem; padding:0.6rem 0; border-bottom:1px solid var(--border); }
-        .nota:last-child { border-bottom:none; }
-        .nota-check { width:15px; height:15px; border-radius:4px; border:1.5px solid var(--border2); flex-shrink:0; cursor:pointer; margin-top:1px; }
-        .nota-txt { font-size:0.78rem; color:var(--text); flex:1; line-height:1.4; }
-        .nota-meta { font-size:0.65rem; color:var(--muted); }
-
-        /* CFG */
-        .cfg-section { background:var(--white); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; margin-bottom:0.9rem; box-shadow:var(--sh); }
-        .cfg-hdr { padding:0.75rem 1rem; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:0.55rem; background:var(--bg); }
-        .cfg-title { font-size:0.82rem; font-weight:700; color:var(--text); }
-        .cfg-body { padding:0.9rem 1rem; }
-        .fg { display:flex; flex-direction:column; gap:0.3rem; margin-bottom:0.6rem; }
-        .fl { font-size:0.72rem; font-weight:600; color:var(--sub); }
-        .fi { padding:0.4rem 0.65rem; border:1px solid var(--border2); border-radius:var(--r-sm); font-family:'Inter',sans-serif; font-size:0.8rem; color:var(--text); background:var(--white); outline:none; }
-        .fi:focus { border-color:var(--pr); }
-        .fi-row { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; }
-
-        /* INT CARD */
-        .int-card { display:flex; align-items:center; gap:0.75rem; padding:0.7rem 0.9rem; background:var(--white); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:0.4rem; }
-        .int-ico { width:32px; height:32px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.95rem; }
-        .int-name { font-size:0.8rem; font-weight:600; color:var(--text); }
-        .int-desc { font-size:0.67rem; color:var(--muted); }
-
-        /* COMUNICACIONES */
+        /* CHAT */
         .comm-wrap { display:flex; height:100%; overflow:hidden; }
         .conv-list { width:268px; min-width:268px; background:var(--white); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
         .conv-hdr { padding:0.8rem 0.9rem; border-bottom:1px solid var(--border); flex-shrink:0; }
@@ -487,6 +388,50 @@ export default function DashboardPage() {
         .chat-input-bar { background:var(--white); border-top:1px solid var(--border); padding:0.65rem 1rem; display:flex; align-items:center; gap:0.55rem; flex-shrink:0; }
         .chat-inp { flex:1; padding:0.46rem 0.7rem; background:var(--bg); border:1px solid var(--border); border-radius:20px; font-family:inherit; font-size:0.79rem; color:var(--text); outline:none; }
 
+        /* MISC */
+        .ai-card { background:linear-gradient(135deg,#2A3F55,#3D5A78); border-radius:var(--r); padding:0.9rem 1rem; color:#fff; }
+        .ai-hdr { display:flex; align-items:center; gap:0.4rem; font-size:0.75rem; font-weight:700; color:rgba(255,255,255,.7); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.5rem; }
+        .ai-pulse { width:7px; height:7px; border-radius:50%; background:#4AB880; box-shadow:0 0 0 2px rgba(74,184,128,.3); }
+        .ai-txt { font-size:0.8rem; line-height:1.55; color:rgba(255,255,255,.9); margin-bottom:0.65rem; }
+        .ai-chips { display:flex; gap:0.4rem; flex-wrap:wrap; }
+        .ai-chip { display:inline-flex; align-items:center; gap:0.25rem; padding:0.22rem 0.6rem; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:20px; font-size:0.67rem; color:rgba(255,255,255,.85); }
+        .alert-row { display:flex; align-items:flex-start; gap:0.65rem; padding:0.62rem 0.8rem; border-left:3px solid var(--border); border-radius:0 var(--r-sm) var(--r-sm) 0; background:var(--white); margin-bottom:0.4rem; }
+        .alert-row.em { border-left-color:var(--em); background:var(--em-bg); }
+        .alert-row.warn { border-left-color:var(--amber); background:var(--amber-bg); }
+        .alert-row.red { border-left-color:var(--red); background:var(--red-bg); }
+        .nota { display:flex; align-items:flex-start; gap:0.6rem; padding:0.6rem 0; border-bottom:1px solid var(--border); }
+        .nota:last-child { border-bottom:none; }
+        .nota-txt { font-size:0.78rem; color:var(--text); flex:1; line-height:1.4; }
+        .nota-meta { font-size:0.65rem; color:var(--muted); }
+        .int-card { display:flex; align-items:center; gap:0.75rem; padding:0.7rem 0.9rem; background:var(--white); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:0.4rem; }
+        .int-ico { width:32px; height:32px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.95rem; }
+        .cfg-section { background:var(--white); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; margin-bottom:0.9rem; box-shadow:var(--sh); }
+        .cfg-hdr { padding:0.75rem 1rem; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:0.55rem; background:var(--bg); }
+        .cfg-title { font-size:0.82rem; font-weight:700; color:var(--text); }
+        .cfg-body { padding:0.9rem 1rem; }
+        .fg { display:flex; flex-direction:column; gap:0.3rem; margin-bottom:0.6rem; }
+        .fl { font-size:0.72rem; font-weight:600; color:var(--sub); }
+        .fi { padding:0.4rem 0.65rem; border:1px solid var(--border2); border-radius:var(--r-sm); font-family:'Inter',sans-serif; font-size:0.8rem; color:var(--text); background:var(--white); outline:none; }
+        .fi:focus { border-color:var(--pr); }
+        .fi-row { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; }
+        .mod-ico { width:28px; height:28px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.82rem; background:var(--bg); }
+        .mod-name { font-size:0.8rem; font-weight:600; color:var(--text); }
+        .mod-desc { font-size:0.67rem; color:var(--muted); }
+        .tog { width:32px; height:18px; border-radius:9px; background:var(--border2); position:relative; cursor:pointer; transition:background .18s; flex-shrink:0; }
+        .tog.on { background:var(--em); }
+        .tog-k { position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:#fff; transition:transform .18s; }
+        .tog.on .tog-k { transform:translateX(14px); }
+        .plan-card { background:var(--white); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:var(--sh); }
+        .plan-hdr { padding:1rem 1.1rem 0.8rem; border-bottom:1px solid var(--border); }
+        .plan-name { font-family:'Fraunces',serif; font-size:1.1rem; font-weight:600; }
+        .plan-price { font-family:'Fraunces',serif; font-size:1.9rem; line-height:1; margin:0.5rem 0 0.2rem; letter-spacing:-0.02em; }
+        .plan-price span { font-size:0.8rem; font-weight:400; color:var(--muted); font-family:'Inter',sans-serif; }
+        .plan-feature { display:flex; align-items:center; gap:0.5rem; padding:0.38rem 1.1rem; font-size:0.77rem; color:var(--text2); border-bottom:1px solid var(--border); }
+        .plan-feature:last-of-type { border-bottom:none; }
+        .plan-foot { padding:0.8rem 1.1rem; }
+        .vh { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.9rem; }
+        .vh-title { font-family:'Fraunces',serif; font-size:1.1rem; font-weight:600; color:var(--text); }
+        .vh-sub { font-size:0.72rem; color:var(--muted); margin-top:2px; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
         .view-anim { animation:fadeIn .18s ease; }
       `}</style>
@@ -494,7 +439,7 @@ export default function DashboardPage() {
   );
 }
 
-/* ══ COMPONENTES REUTILIZABLES ══ */
+/* ══ COMPONENTES ══ */
 
 function NavItem({ id, icon, label, active, onClick, badge, badgeClass, incoming }) {
   return (
@@ -502,12 +447,7 @@ function NavItem({ id, icon, label, active, onClick, badge, badgeClass, incoming
       <i className={`bi ${icon} ni-ic`} />
       <span className="ni-txt">{label}</span>
       {incoming && !badge && (
-        <span style={{
-          background:"rgba(176,138,85,.18)", color:"#C8A472",
-          fontSize:"0.52rem", fontWeight:700, padding:"1px 6px",
-          borderRadius:9, flexShrink:0, letterSpacing:"0.04em",
-          textTransform:"uppercase", border:"1px solid rgba(176,138,85,.3)",
-        }}>soon</span>
+        <span style={{background:"rgba(176,138,85,.18)",color:"#C8A472",fontSize:"0.52rem",fontWeight:700,padding:"1px 6px",borderRadius:9,flexShrink:0,letterSpacing:"0.04em",textTransform:"uppercase",border:"1px solid rgba(176,138,85,.3)"}}>soon</span>
       )}
       {badge && <span className={`ni-badge${badgeClass ? " " + badgeClass : ""}`}>{badge}</span>}
     </div>
@@ -516,71 +456,44 @@ function NavItem({ id, icon, label, active, onClick, badge, badgeClass, incoming
 
 function DropdownItem({ icon, label, onClick, danger, muted }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        display:"flex", alignItems:"center", gap:"0.55rem",
-        padding:"0.45rem 0.85rem", cursor:"pointer",
-        fontSize:"0.8rem", fontWeight:500,
-        color: danger ? "var(--red)" : muted ? "var(--muted)" : "var(--text)",
-        transition:"background .12s",
-      }}
+    <div onClick={onClick}
+      style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.45rem 0.85rem",cursor:"pointer",fontSize:"0.8rem",fontWeight:500,color: danger ? "var(--red)" : muted ? "var(--muted)" : "var(--text)",transition:"background .12s"}}
       onMouseEnter={e => e.currentTarget.style.background = danger ? "var(--red-bg)" : "var(--bg)"}
-      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-    >
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
       <i className={`bi ${icon}`} style={{fontSize:"0.88rem",width:16,textAlign:"center"}} />
       {label}
     </div>
   );
 }
 
-/* ══════════════════════════════════════
-   VIEWS
-══════════════════════════════════════ */
+/* ══════════════ VIEWS ══════════════ */
 
 function ViewDashboard() {
   return (
     <div className="view-anim">
       <div className="g4">
-        <div className="kpi">
-          <div className="kpi-ico" style={{background:"var(--accent-pale)"}}><i className="bi bi-people" style={{color:"var(--accent)"}} /></div>
-          <div className="kpi-val">—</div>
-          <div className="kpi-lbl">Clientes activos</div>
-          <div className="kpi-d nu"><i className="bi bi-dash" /> sin datos aún</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-ico" style={{background:"var(--pine-bg)"}}><i className="bi bi-cash-coin" style={{color:"var(--pine-d)"}} /></div>
-          <div className="kpi-val">—</div>
-          <div className="kpi-lbl">Ingresos mensuales</div>
-          <div className="kpi-d nu"><i className="bi bi-dash" /> sin datos aún</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-ico" style={{background:"var(--moon-l)"}}><i className="bi bi-puzzle" style={{color:"var(--sub)"}} /></div>
-          <div className="kpi-val">—</div>
-          <div className="kpi-lbl">Módulos activos</div>
-          <div className="kpi-d nu"><i className="bi bi-dash" /> sin datos aún</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-ico" style={{background:"var(--red-bg)"}}><i className="bi bi-exclamation-triangle" style={{color:"var(--red)"}} /></div>
-          <div className="kpi-val">—</div>
-          <div className="kpi-lbl">Riesgo de churn</div>
-          <div className="kpi-d nu"><i className="bi bi-dash" /> sin datos aún</div>
-        </div>
+        {[
+          ["bi-people","var(--accent-pale)","var(--accent)","—","Clientes activos"],
+          ["bi-cash-coin","var(--pine-bg)","var(--pine-d)","—","Ingresos mensuales"],
+          ["bi-graph-up-arrow","var(--blue-bg)","var(--blue)","—","Leads activos"],
+          ["bi-exclamation-triangle","var(--red-bg)","var(--red)","—","Riesgo de churn"],
+        ].map(([ico,bg,color,val,lbl],i) => (
+          <div key={i} className="kpi">
+            <div className="kpi-ico" style={{background:bg}}><i className={`bi ${ico}`} style={{color}} /></div>
+            <div className="kpi-val">{val}</div>
+            <div className="kpi-lbl">{lbl}</div>
+            <div className="kpi-d nu"><i className="bi bi-dash" /> sin datos aún</div>
+          </div>
+        ))}
       </div>
-
       <div className="g32">
         <div className="card">
-          <div className="ch">
-            <i className="bi bi-activity" style={{color:"var(--accent)"}} />
-            <span className="ch-title">Actividad reciente</span>
-            <span className="ch-sub">últimas 24 hs</span>
-          </div>
+          <div className="ch"><i className="bi bi-activity" style={{color:"var(--accent)"}} /><span className="ch-title">Actividad reciente</span><span className="ch-sub">últimas 24 hs</span></div>
           <div className="cb" style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem",gap:"0.5rem",color:"var(--muted)"}}>
             <i className="bi bi-inbox" style={{fontSize:"1.5rem"}} />
             <div style={{fontSize:"0.8rem"}}>Sin actividad registrada todavía</div>
           </div>
         </div>
-
         <div style={{display:"flex",flexDirection:"column",gap:"0.9rem"}}>
           <div className="card">
             <div className="ch"><i className="bi bi-graph-down-arrow" style={{color:"var(--red)"}} /><span className="ch-title">Clientes en riesgo</span></div>
@@ -591,7 +504,7 @@ function ViewDashboard() {
           </div>
           <div className="ai-card">
             <div className="ai-hdr"><div className="ai-pulse" /><i className="bi bi-stars" />Asistente IA</div>
-            <div className="ai-txt">El asistente comenzará a generar sugerencias a medida que se carguen clientes y datos en el sistema.</div>
+            <div className="ai-txt">El asistente comenzará a generar sugerencias a medida que se carguen datos en el sistema.</div>
             <div className="ai-chips">
               <span className="ai-chip"><i className="bi bi-arrow-repeat" /> Retención</span>
               <span className="ai-chip"><i className="bi bi-person-check" /> Reactivar</span>
@@ -600,48 +513,14 @@ function ViewDashboard() {
           </div>
         </div>
       </div>
-
-      <div className="g2">
-        <div className="card">
-          <div className="ch"><i className="bi bi-bar-chart" style={{color:"var(--accent)"}} /><span className="ch-title">Nuevos clientes por mes</span></div>
-          <div className="cb" style={{display:"flex",alignItems:"center",justifyContent:"center",height:120,color:"var(--muted)"}}>
-            <div style={{textAlign:"center",fontSize:"0.78rem"}}>
-              <i className="bi bi-bar-chart" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.4rem"}} />
-              Sin datos aún
-            </div>
-          </div>
-        </div>
-        <div className="card">
-          <div className="ch"><i className="bi bi-pie-chart" style={{color:"var(--pine-d)"}} /><span className="ch-title">Distribución por rubro</span></div>
-          <div className="cb" style={{display:"flex",alignItems:"center",justifyContent:"center",height:120,color:"var(--muted)"}}>
-            <div style={{textAlign:"center",fontSize:"0.78rem"}}>
-              <i className="bi bi-pie-chart" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.4rem"}} />
-              Sin datos aún
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
 
-const RUBROS = [
-  "Hotel","Salón de eventos","Consultorio / Clínica","Spa / Centro de bienestar",
-  "Inmobiliaria","Restaurante / Local de comida","Contador / Estudio contable",
-  "Abogado / Estudio jurídico","Gestor de seguros","Logística / Distribución","GovTech","Otro",
-];
-
-const PLAN_META = {
-  starter:    { label:"Starter",  cls:"bdg-moon" },
-  pro:        { label:"Pro",      cls:"bdg-pro" },
-  plan_ia:    { label:"Plan IA",  cls:"bdg-gold" },
-  enterprise: { label:"Enterprise", cls:"bdg-pine" },
-};
-
-const FORM_VACIO = {
-  nombre:"", rubro:"", plan:"starter", subdominio:"",
-  email:"", telefono:"", logo_url:"",
-};
+/* ══ CLIENTES ══ */
+const RUBROS = ["Hotel","Salón de eventos","Consultorio / Clínica","Spa / Centro de bienestar","Inmobiliaria","Restaurante / Local de comida","Contador / Estudio contable","Abogado / Estudio jurídico","Gestor de seguros","Logística / Distribución","GovTech","Otro"];
+const PLAN_META = { starter:{label:"Starter",cls:"bdg-moon"}, pro:{label:"Pro",cls:"bdg-pro"}, plan_ia:{label:"Plan IA",cls:"bdg-gold"}, enterprise:{label:"Enterprise",cls:"bdg-pine"} };
+const FORM_VACIO = { nombre:"", rubro:"", plan:"starter", subdominio:"", email:"", telefono:"", logo_url:"" };
 
 function ViewClientes() {
   const [tenants, setTenants] = useState([]);
@@ -652,974 +531,105 @@ function ViewClientes() {
   const [form, setForm] = useState(FORM_VACIO);
   const [error, setError] = useState("");
 
-  const cargar = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/tenants");
-      const data = await res.json();
-      if (data.ok) setTenants(data.tenants);
-    } catch (_) {}
-    setLoading(false);
-  };
-
+  const cargar = async () => { setLoading(true); try { const r = await fetch("/api/tenants"); const d = await r.json(); if(d.ok) setTenants(d.tenants); } catch(_){} setLoading(false); };
   useEffect(() => { cargar(); }, []);
-
-  const abrirNuevo = () => {
-    setEditando(null);
-    setForm(FORM_VACIO);
-    setError("");
-    setModal(true);
-  };
-
-  const abrirEditar = (t) => {
-    setEditando(t);
-    setForm({
-      nombre: t.nombre || "",
-      rubro: t.rubro || "",
-      plan: t.plan || "starter",
-      subdominio: t.subdominio || "",
-      email: t.email || "",
-      telefono: t.telefono || "",
-      logo_url: t.logo_url || "",
-    });
-    setError("");
-    setModal(true);
-  };
-
+  const abrirNuevo = () => { setEditando(null); setForm(FORM_VACIO); setError(""); setModal(true); };
+  const abrirEditar = (t) => { setEditando(t); setForm({nombre:t.nombre||"",rubro:t.rubro||"",plan:t.plan||"starter",subdominio:t.subdominio||"",email:t.email||"",telefono:t.telefono||"",logo_url:t.logo_url||""}); setError(""); setModal(true); };
   const guardar = async () => {
-    if (!form.nombre || !form.rubro) { setError("Nombre y rubro son obligatorios"); return; }
-    setSaving(true);
-    setError("");
-    try {
-      const method = editando ? "PATCH" : "POST";
-      const body = editando ? { id: editando.id, ...form } : form;
-      const res = await fetch("/api/tenants", {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!data.ok) { setError(data.error || "Error al guardar"); setSaving(false); return; }
-      setModal(false);
-      await cargar();
-    } catch (_) { setError("Error de conexión"); }
+    if(!form.nombre||!form.rubro){ setError("Nombre y rubro son obligatorios"); return; }
+    setSaving(true); setError("");
+    try { const m=editando?"PATCH":"POST"; const b=editando?{id:editando.id,...form}:form; const r=await fetch("/api/tenants",{method:m,headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}); const d=await r.json(); if(!d.ok){setError(d.error||"Error al guardar");setSaving(false);return;} setModal(false); await cargar(); } catch(_){setError("Error de conexión");}
     setSaving(false);
   };
-
-  const toggleActivo = async (t) => {
-    try {
-      await fetch("/api/tenants", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: t.id, activo: t.activo ? 0 : 1 }),
-      });
-      await cargar();
-    } catch (_) {}
-  };
-
-  const eliminar = async (t) => {
-    if (!confirm(`¿Eliminar a ${t.nombre}? Esta acción no se puede deshacer.`)) return;
-    try {
-      await fetch("/api/tenants", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: t.id }),
-      });
-      await cargar();
-    } catch (_) {}
-  };
-
-  const f = (v) => setForm(p => ({ ...p, ...v }));
+  const toggleActivo = async (t) => { try { await fetch("/api/tenants",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:t.id,activo:t.activo?0:1})}); await cargar(); } catch(_){} };
+  const eliminar = async (t) => { if(!confirm(`¿Eliminar a ${t.nombre}?`)) return; try { await fetch("/api/tenants",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:t.id})}); await cargar(); } catch(_){} };
+  const f = (v) => setForm(p=>({...p,...v}));
 
   return (
     <div className="view-anim">
       <div className="vh">
-        <div>
-          <div className="vh-title">Clientes</div>
-          <div className="vh-sub">{tenants.length} tenants registrados</div>
-        </div>
+        <div><div className="vh-title">Clientes</div><div className="vh-sub">{tenants.length} tenants registrados</div></div>
         <div style={{display:"flex",gap:"0.5rem"}}>
           <button className="btn btn-out btn-sm" onClick={cargar}><i className="bi bi-arrow-clockwise" /></button>
           <button className="btn btn-em btn-sm" onClick={abrirNuevo}><i className="bi bi-plus-lg" /> Nuevo cliente</button>
         </div>
       </div>
-
       <div className="card">
-        {loading ? (
-          <div style={{padding:"2.5rem",textAlign:"center",color:"var(--muted)"}}>
-            <i className="bi bi-hourglass-split" style={{fontSize:"1.4rem",display:"block",marginBottom:8}} />
-            Cargando clientes...
-          </div>
-        ) : (
+        {loading ? <Cargando texto="Cargando clientes..." /> : (
           <table className="tbl">
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Rubro</th>
-                <th>Plan</th>
-                <th>Subdominio</th>
-                <th>Activo</th>
-                <th>Creado</th>
-                <th></th>
-              </tr>
-            </thead>
+            <thead><tr><th>Cliente</th><th>Rubro</th><th>Plan</th><th>Subdominio</th><th>Activo</th><th>Creado</th><th></th></tr></thead>
             <tbody>
-              {tenants.length === 0 ? (
-                <tr><td colSpan={7} style={{textAlign:"center",padding:"2.5rem",color:"var(--muted)"}}>
-                  <i className="bi bi-people" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.5rem"}} />
-                  No hay clientes registrados todavía
-                </td></tr>
-              ) : tenants.map(t => (
+              {tenants.length===0 ? <tr><td colSpan={7} style={{textAlign:"center",padding:"2.5rem",color:"var(--muted)"}}><i className="bi bi-people" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.5rem"}} />No hay clientes registrados</td></tr>
+              : tenants.map(t => (
                 <tr key={t.id}>
-                  <td>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      {t.logo_url ? (
-                        <img src={t.logo_url} alt="" style={{width:28,height:28,borderRadius:7,objectFit:"cover",border:"1px solid var(--border)",flexShrink:0}} />
-                      ) : (
-                        <div style={{width:28,height:28,borderRadius:7,background:"var(--pr-pale)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.72rem",fontWeight:700,color:"var(--pr)",flexShrink:0}}>
-                          {t.nombre?.[0]?.toUpperCase()}
-                        </div>
-                      )}
-                      <div>
-                        <div style={{fontWeight:600,fontSize:"0.8rem"}}>{t.nombre}</div>
-                        {t.email && <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{t.email}</div>}
-                      </div>
-                    </div>
-                  </td>
+                  <td><div style={{display:"flex",alignItems:"center",gap:8}}>
+                    {t.logo_url ? <img src={t.logo_url} alt="" style={{width:28,height:28,borderRadius:7,objectFit:"cover",border:"1px solid var(--border)",flexShrink:0}} /> : <Av letra={t.nombre?.[0]} size={28} r={7} />}
+                    <div><div style={{fontWeight:600,fontSize:"0.8rem"}}>{t.nombre}</div>{t.email&&<div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{t.email}</div>}</div>
+                  </div></td>
                   <td><span className="bdg bdg-blue">{t.rubro}</span></td>
-                  <td><span className={`bdg ${PLAN_META[t.plan]?.cls ?? "bdg-moon"}`}>{PLAN_META[t.plan]?.label ?? t.plan}</span></td>
-                  <td style={{fontSize:"0.75rem",color:"var(--muted)"}}>
-                    {t.subdominio ? `${t.subdominio}.gestion360ia.com.ar` : <span style={{color:"var(--border2)"}}>—</span>}
-                  </td>
-                  <td>
-                    <div className={`tog${t.activo ? " on" : ""}`} onClick={() => toggleActivo(t)}>
-                      <div className="tog-k" />
-                    </div>
-                  </td>
-                  <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>
-                    {new Date(t.creado_en).toLocaleDateString("es-AR")}
-                  </td>
-                  <td>
-                    <div style={{display:"flex",gap:4}}>
-                      <button className="btn btn-xs btn-out" onClick={() => abrirEditar(t)}>
-                        <i className="bi bi-pencil" />
-                      </button>
-                      <button className="btn btn-xs" onClick={() => eliminar(t)}
-                        style={{background:"var(--red-bg)",color:"var(--red)",border:"1px solid #f5c6c6"}}>
-                        <i className="bi bi-trash3" />
-                      </button>
-                    </div>
-                  </td>
+                  <td><span className={`bdg ${PLAN_META[t.plan]?.cls??"bdg-moon"}`}>{PLAN_META[t.plan]?.label??t.plan}</span></td>
+                  <td style={{fontSize:"0.75rem",color:"var(--muted)"}}>{t.subdominio?`${t.subdominio}.gestion360ia.com.ar`:<span style={{color:"var(--border2)"}}>—</span>}</td>
+                  <td><div className={`tog${t.activo?" on":""}`} onClick={()=>toggleActivo(t)}><div className="tog-k" /></div></td>
+                  <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>{new Date(t.creado_en).toLocaleDateString("es-AR")}</td>
+                  <td><div style={{display:"flex",gap:4}}>
+                    <button className="btn btn-xs btn-out" onClick={()=>abrirEditar(t)}><i className="bi bi-pencil" /></button>
+                    <button className="btn btn-xs" onClick={()=>eliminar(t)} style={{background:"var(--red-bg)",color:"var(--red)",border:"1px solid #f5c6c6"}}><i className="bi bi-trash3" /></button>
+                  </div></td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
-
-      {/* Modal alta / edición */}
       {modal && (
-        <div style={{
-          position:"fixed",inset:0,background:"rgba(15,23,42,.45)",
-          display:"flex",alignItems:"center",justifyContent:"center",
-          zIndex:9999,padding:"1rem",
-        }} onClick={e => e.target === e.currentTarget && setModal(false)}>
-          <div style={{
-            background:"#fff",borderRadius:"var(--r)",
-            width:"100%",maxWidth:480,
-            boxShadow:"0 20px 60px rgba(15,23,42,.2)",
-            overflow:"hidden",
-          }}>
-            {/* Header modal */}
-            <div style={{padding:"1rem 1.2rem",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--bg)"}}>
-              <div style={{fontWeight:700,fontSize:"0.9rem",color:"var(--text)"}}>
-                {editando ? "Editar cliente" : "Nuevo cliente"}
-              </div>
-              <button onClick={() => setModal(false)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:"1rem"}}>
-                <i className="bi bi-x-lg" />
-              </button>
+        <Modal title={editando?"Editar cliente":"Nuevo cliente"} onClose={()=>setModal(false)}>
+          <div style={{padding:"1.2rem",display:"flex",flexDirection:"column",gap:"0.7rem"}}>
+            <div className="fg"><label className="fl">Nombre del negocio *</label><input className="fi" value={form.nombre} onChange={e=>f({nombre:e.target.value})} placeholder="Ej: Hotel Aurora" /></div>
+            <div className="fi-row">
+              <div className="fg"><label className="fl">Rubro *</label><select className="fi" value={form.rubro} onChange={e=>f({rubro:e.target.value})}><option value="">Seleccionar…</option>{RUBROS.map(r=><option key={r} value={r}>{r}</option>)}</select></div>
+              <div className="fg"><label className="fl">Plan</label><select className="fi" value={form.plan} onChange={e=>f({plan:e.target.value})}><option value="starter">Starter</option><option value="pro">Pro</option><option value="plan_ia">Plan IA</option><option value="enterprise">Enterprise</option></select></div>
             </div>
-
-            {/* Body modal */}
-            <div style={{padding:"1.2rem",display:"flex",flexDirection:"column",gap:"0.7rem"}}>
-
-              <div className="fg">
-                <label className="fl">Nombre del negocio *</label>
-                <input className="fi" value={form.nombre} onChange={e => f({nombre:e.target.value})} placeholder="Ej: Hotel Aurora" />
-              </div>
-
-              <div className="fi-row">
-                <div className="fg">
-                  <label className="fl">Rubro *</label>
-                  <select className="fi" value={form.rubro} onChange={e => f({rubro:e.target.value})}>
-                    <option value="">Seleccionar…</option>
-                    {RUBROS.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div className="fg">
-                  <label className="fl">Plan</label>
-                  <select className="fi" value={form.plan} onChange={e => f({plan:e.target.value})}>
-                    <option value="starter">Starter</option>
-                    <option value="pro">Pro</option>
-                    <option value="plan_ia">Plan IA</option>
-                    <option value="enterprise">Enterprise</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="fi-row">
-                <div className="fg">
-                  <label className="fl">Email</label>
-                  <input className="fi" value={form.email} onChange={e => f({email:e.target.value})} placeholder="contacto@empresa.com" />
-                </div>
-                <div className="fg">
-                  <label className="fl">Teléfono</label>
-                  <input className="fi" value={form.telefono} onChange={e => f({telefono:e.target.value})} placeholder="+54 11 0000-0000" />
-                </div>
-              </div>
-
-              <div className="fg">
-                <label className="fl">Subdominio</label>
-                <div style={{display:"flex",alignItems:"center",gap:0}}>
-                  <input className="fi" value={form.subdominio} onChange={e => f({subdominio:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"")})}
-                    placeholder="mi-empresa" style={{borderRadius:"var(--r-sm) 0 0 var(--r-sm)",borderRight:"none"}} />
-                  <div style={{padding:"0.4rem 0.65rem",background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:"0 var(--r-sm) var(--r-sm) 0",fontSize:"0.75rem",color:"var(--muted)",whiteSpace:"nowrap"}}>
-                    .gestion360ia.com.ar
-                  </div>
-                </div>
-              </div>
-
-              <div className="fg">
-                <label className="fl">URL del logo</label>
-                <input className="fi" value={form.logo_url} onChange={e => f({logo_url:e.target.value})} placeholder="https://…" />
-              </div>
-
-              {error && (
-                <div style={{background:"var(--red-bg)",border:"1px solid #f5c6c6",borderRadius:"var(--r-sm)",padding:"0.5rem 0.75rem",fontSize:"0.78rem",color:"var(--red)"}}>
-                  <i className="bi bi-exclamation-circle" /> {error}
-                </div>
-              )}
+            <div className="fi-row">
+              <div className="fg"><label className="fl">Email</label><input className="fi" value={form.email} onChange={e=>f({email:e.target.value})} placeholder="contacto@empresa.com" /></div>
+              <div className="fg"><label className="fl">Teléfono</label><input className="fi" value={form.telefono} onChange={e=>f({telefono:e.target.value})} placeholder="+54 11 0000-0000" /></div>
             </div>
-
-            {/* Footer modal */}
-            <div style={{padding:"0.9rem 1.2rem",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"0.5rem",background:"var(--bg)"}}>
-              <button className="btn btn-out btn-sm" onClick={() => setModal(false)}>Cancelar</button>
-              <button className="btn btn-em btn-sm" onClick={guardar} disabled={saving}>
-                {saving ? <><i className="bi bi-hourglass-split" /> Guardando…</> : <><i className="bi bi-check-lg" /> {editando ? "Guardar cambios" : "Crear cliente"}</>}
-              </button>
+            <div className="fg"><label className="fl">Subdominio</label>
+              <div style={{display:"flex",alignItems:"center"}}>
+                <input className="fi" value={form.subdominio} onChange={e=>f({subdominio:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"")})} placeholder="mi-empresa" style={{borderRadius:"var(--r-sm) 0 0 var(--r-sm)",borderRight:"none"}} />
+                <div style={{padding:"0.4rem 0.65rem",background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:"0 var(--r-sm) var(--r-sm) 0",fontSize:"0.75rem",color:"var(--muted)",whiteSpace:"nowrap"}}>.gestion360ia.com.ar</div>
+              </div>
             </div>
+            <div className="fg"><label className="fl">URL del logo</label><input className="fi" value={form.logo_url} onChange={e=>f({logo_url:e.target.value})} placeholder="https://…" /></div>
+            {error && <ErrorMsg msg={error} />}
           </div>
-        </div>
+          <ModalFooter onCancel={()=>setModal(false)} onConfirm={guardar} saving={saving} labelConfirm={editando?"Guardar cambios":"Crear cliente"} />
+        </Modal>
       )}
     </div>
   );
 }
 
-function ViewModulos() {
-  const modulos = [
-    {icon:"bi-grid-1x2",name:"Dashboard IA",desc:"Estadísticas e inteligencia analítica"},
-    {icon:"bi-people",name:"CRM / Clientes",desc:"Gestión de clientes y leads"},
-    {icon:"bi-whatsapp",name:"WhatsApp Bot",desc:"Bot con IA y memoria de contexto"},
-    {icon:"bi-calendar-check",name:"Agenda / Turnos",desc:"Turnos inteligentes con predicción"},
-    {icon:"bi-receipt",name:"Facturación",desc:"Facturas y presupuestos con IA"},
-    {icon:"bi-bell",name:"Notificaciones",desc:"Comunicaciones automatizadas"},
-    {icon:"bi-bar-chart-line",name:"Estadísticas",desc:"Análisis en lenguaje natural"},
-    {icon:"bi-geo-alt",name:"Mapas",desc:"Geolocalización y seguimiento"},
-    {icon:"bi-building",name:"Reservas / Hotel",desc:"Gestión de habitaciones y reservas"},
-    {icon:"bi-heart-pulse",name:"Historia Clínica",desc:"Pacientes y turnos médicos"},
-    {icon:"bi-house",name:"Propiedades",desc:"Gestión inmobiliaria con mapa"},
-    {icon:"bi-truck",name:"Distribución",desc:"Rutas y logística inteligente"},
-  ];
-  return (
-    <div className="view-anim">
-      <div className="vh">
-        <div><div className="vh-title">Módulos</div><div className="vh-sub">Catálogo del sistema</div></div>
-      </div>
-      <div className="g3">
-        {modulos.map((m,i) => (
-          <div key={i} className="card">
-            <div className="cb" style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
-              <div className="mod-ico" style={{background:"var(--pr-pale)"}}><i className={`bi ${m.icon}`} style={{color:"var(--pr)"}} /></div>
-              <div style={{flex:1}}>
-                <div className="mod-name">{m.name}</div>
-                <div className="mod-desc">{m.desc}</div>
-              </div>
-              <div className="tog" onClick={e => e.currentTarget.classList.toggle("on")}><div className="tog-k" /></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ViewPlanes() {
-  const planes = [
-    {name:"Starter",price:"Gratis",color:"var(--sub)",features:["Módulos básicos limitados","1 usuario","Sin WhatsApp","1 sugerencia IA/día"],off:[2,3]},
-    {name:"Pro",price:"$XX.000",color:"var(--em)",features:["Módulos completos","5 usuarios","WhatsApp activo","Skills IA Nivel 2"],off:[]},
-    {name:"Plan IA",price:"$XX.000",color:"var(--accent)",features:["Todo Pro incluido","Skills IA completas","Asistente IA avanzado","Sugerencias reactivas"],off:[]},
-    {name:"Enterprise",price:"A consultar",color:"var(--pr)",features:["Multi-cuenta","White label","Módulos custom","Consultoría incluida"],off:[]},
-  ];
-  return (
-    <div className="view-anim">
-      <div className="vh">
-        <div><div className="vh-title">Planes</div><div className="vh-sub">Gestión de suscripciones</div></div>
-        <button className="btn btn-em btn-sm"><i className="bi bi-plus-lg" /> Nuevo plan</button>
-      </div>
-      <div className="g4">
-        {planes.map((p,i) => (
-          <div key={i} className="plan-card">
-            <div className="plan-hdr">
-              <div className="plan-name" style={{color:p.color}}>{p.name}</div>
-              <div className="plan-price">{p.price}<span>/mes</span></div>
-            </div>
-            {p.features.map((f,j) => (
-              <div key={j} className={`plan-feature${p.off.includes(j) ? " off" : ""}`}>
-                <i className={`bi ${p.off.includes(j) ? "bi-x text-muted" : "bi-check2"}`} style={{color: p.off.includes(j) ? "var(--border2)" : p.color}} />
-                {f}
-              </div>
-            ))}
-            <div className="plan-foot">
-              <button className="btn btn-em btn-sm" style={{width:"100%",background:p.color}}>Gestionar</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ViewComunicaciones() {
-  return (
-    <div className="comm-wrap view-anim">
-      <div className="conv-list">
-        <div className="conv-hdr"><div className="conv-hdr-title">Conversaciones</div></div>
-        <div className="conv-search"><i className="bi bi-search" style={{color:"var(--muted)",fontSize:"0.75rem"}} /><input placeholder="Buscar…" /></div>
-        <div className="conv-items">
-          {[["HA","Hotel Alvear","¿Cuándo se activa el módulo?","10:24"],["SV","Salón Versailles","Necesito ajustar el bot","09:15"],["DR","Dra. López","Consulta sobre facturación","ayer"]].map(([av,name,prev,time],i) => (
-            <div key={i} className={`conv-item${i===0?" on":""}`}>
-              <div className="conv-av">{av}</div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div className="conv-name">{name}</div>
-                  <div className="conv-time">{time}</div>
-                </div>
-                <div className="conv-prev">{prev}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="chat-panel">
-        <div className="chat-hdr">
-          <div className="conv-av">HA</div>
-          <div><div style={{fontWeight:600,fontSize:"0.82rem"}}>Hotel Alvear</div><div style={{fontSize:"0.67rem",color:"var(--muted)"}}>hotel · Plan Pro</div></div>
-        </div>
-        <div className="chat-msgs">
-          <div className="msg msg-in">Hola, quería saber cuándo se activa el módulo de reservas.<div className="msg-t">10:22</div></div>
-          <div className="msg msg-out">¡Hola! El módulo ya está habilitado. Podés acceder desde tu portal en la sección Reservas.<div className="msg-t">10:24</div></div>
-        </div>
-        <div className="chat-input-bar">
-          <input className="chat-inp" placeholder="Escribir mensaje…" />
-          <button className="btn btn-em btn-sm"><i className="bi bi-send" /></button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ViewSeguimiento() {
-  const tareas = [
-    {txt:"Contactar a Inmobiliaria Palermo — sin actividad 12 días",meta:"Vence hoy · Alta prioridad"},
-    {txt:"Revisar configuración WhatsApp — Salón Versailles",meta:"Vence mañana"},
-    {txt:"Enviar propuesta Plan IA a Gestor Seguros BA",meta:"Esta semana"},
-    {txt:"Onboarding Spa Zen Recoleta — cliente nuevo",meta:"Esta semana"},
-  ];
-  return (
-    <div className="view-anim">
-      <div className="vh">
-        <div><div className="vh-title">Seguimiento</div><div className="vh-sub">Tareas y recordatorios</div></div>
-        <button className="btn btn-em btn-sm"><i className="bi bi-plus-lg" /> Nueva tarea</button>
-      </div>
-      <div className="card"><div className="cb">
-        {tareas.map((t,i) => (
-          <div key={i} className="nota">
-            <div className="nota-check" onClick={e => e.currentTarget.classList.toggle("done")} />
-            <div style={{flex:1}}>
-              <div className="nota-txt">{t.txt}</div>
-              <div className="nota-meta">{t.meta}</div>
-            </div>
-          </div>
-        ))}
-      </div></div>
-    </div>
-  );
-}
-
-function ViewAlertas() {
-  return (
-    <div className="view-anim">
-      <div className="vh">
-        <div><div className="vh-title">Alertas IA</div><div className="vh-sub">Detecciones automáticas</div></div>
-      </div>
-      <div className="alert-row red"><i className="bi bi-exclamation-circle alert-ico" style={{color:"var(--red)"}} /><div className="alert-txt"><strong>Inmobiliaria Palermo</strong> — Sin actividad hace 12 días. Riesgo de churn alto.</div><button className="btn btn-xs btn-out" style={{marginLeft:"auto",flexShrink:0}}>Acción</button></div>
-      <div className="alert-row warn"><i className="bi bi-exclamation-triangle alert-ico" style={{color:"var(--amber)"}} /><div className="alert-txt"><strong>Gestor Seguros BA</strong> — Baja frecuencia de uso. Considerar reactivación.</div><button className="btn btn-xs btn-out" style={{marginLeft:"auto",flexShrink:0}}>Acción</button></div>
-      <div className="alert-row warn"><i className="bi bi-exclamation-triangle alert-ico" style={{color:"var(--amber)"}} /><div className="alert-txt"><strong>Estudio Contable Sur</strong> — Solo usa 2 de 8 módulos habilitados.</div><button className="btn btn-xs btn-out" style={{marginLeft:"auto",flexShrink:0}}>Acción</button></div>
-      <div className="alert-row em"><i className="bi bi-check-circle alert-ico" style={{color:"var(--em)"}} /><div className="alert-txt"><strong>Hotel Alvear</strong> — Activó módulo Reservas. Engagement en aumento.</div></div>
-    </div>
-  );
-}
-
-function ViewIntegraciones() {
-  const ints = [
-    {ico:"bi-whatsapp",bg:"#E8F7EE",color:"#1A7A3A",name:"Evolution API",desc:"WhatsApp Bot",status:"Conectado"},
-    {ico:"bi-robot",bg:"var(--accent-pale)",color:"var(--accent)",name:"Claude API",desc:"IA principal",status:"Conectado"},
-    {ico:"bi-diagram-3",bg:"var(--blue-bg)",color:"var(--blue)",name:"n8n",desc:"Automatizaciones",status:"Conectado"},
-    {ico:"bi-credit-card",bg:"var(--em-pale)",color:"var(--em-d)",name:"MercadoPago",desc:"Pagos ARS",status:"Pendiente"},
-    {ico:"bi-geo-alt",bg:"var(--pine-bg)",color:"var(--pine-d)",name:"Google Maps",desc:"Mapas y rutas",status:"Pendiente"},
-  ];
-  return (
-    <div className="view-anim">
-      <div className="vh">
-        <div><div className="vh-title">Integraciones</div><div className="vh-sub">Conexiones externas</div></div>
-      </div>
-      {ints.map((it,i) => (
-        <div key={i} className="int-card">
-          <div className="int-ico" style={{background:it.bg}}><i className={`bi ${it.ico}`} style={{color:it.color}} /></div>
-          <div style={{flex:1}}>
-            <div className="int-name">{it.name}</div>
-            <div className="int-desc">{it.desc}</div>
-          </div>
-          <span className={`bdg ${it.status==="Conectado"?"bdg-em":"bdg-moon"}`}>{it.status}</span>
-          <button className="btn btn-out btn-sm">{it.status==="Conectado"?"Configurar":"Conectar"}</button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ViewAuditoria() {
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filtro, setFiltro] = useState("");
-
-  const cargar = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auditoria");
-      const data = await res.json();
-      if (data.ok) setLogs(data.logs);
-    } catch (_) {}
-    setLoading(false);
-  };
-
-  useEffect(() => { cargar(); }, []);
-
-  const formatFecha = (f) => {
-    const d = new Date(f);
-    return d.toLocaleDateString("es-AR", { day:"2-digit", month:"short", year:"numeric" })
-      + " · " + d.toLocaleTimeString("es-AR", { hour:"2-digit", minute:"2-digit" });
-  };
-
-  const filtrados = logs.filter(l =>
-    !filtro ||
-    l.nombre?.toLowerCase().includes(filtro.toLowerCase()) ||
-    l.email?.toLowerCase().includes(filtro.toLowerCase()) ||
-    l.dispositivo?.toLowerCase().includes(filtro.toLowerCase()) ||
-    l.ip?.includes(filtro)
-  );
-
-  // KPIs
-  const hoy = new Date();
-  hoy.setHours(0,0,0,0);
-  const sesionesHoy = logs.filter(l => new Date(l.creado_en) >= hoy).length;
-  const usuariosUnicos = [...new Set(logs.filter(l => new Date(l.creado_en) >= hoy).map(l => l.email))].length;
-  const ultimoAcceso = logs[0] ? formatFecha(logs[0].creado_en) : "—";
-
-  return (
-    <div className="view-anim">
-      <div className="vh">
-        <div><div className="vh-title">Auditoría</div><div className="vh-sub">Registro de accesos al sistema</div></div>
-        <button className="btn btn-out btn-sm" onClick={cargar}><i className="bi bi-arrow-clockwise" /> Actualizar</button>
-      </div>
-
-      {/* KPIs */}
-      <div className="g3" style={{marginBottom:"0.9rem"}}>
-        <div className="kpi">
-          <div className="kpi-ico" style={{background:"var(--pr-pale)"}}><i className="bi bi-box-arrow-in-right" style={{color:"var(--pr)"}} /></div>
-          <div className="kpi-val">{sesionesHoy}</div>
-          <div className="kpi-lbl">Accesos hoy</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-ico" style={{background:"var(--em-pale)"}}><i className="bi bi-people" style={{color:"var(--em-d)"}} /></div>
-          <div className="kpi-val">{usuariosUnicos}</div>
-          <div className="kpi-lbl">Usuarios únicos hoy</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-ico" style={{background:"var(--accent-pale)"}}><i className="bi bi-clock-history" style={{color:"var(--accent)"}} /></div>
-          <div className="kpi-val" style={{fontSize:"0.95rem",marginTop:4}}>{logs[0] ? logs[0].nombre || "—" : "—"}</div>
-          <div className="kpi-lbl">Último acceso</div>
-          <div style={{fontSize:"0.65rem",color:"var(--muted)",marginTop:2}}>{ultimoAcceso}</div>
-        </div>
-      </div>
-
-      {/* Filtro */}
-      <div style={{display:"flex",gap:"0.6rem",marginBottom:"0.7rem"}}>
-        <div className="tb-search" style={{width:"100%",maxWidth:280}}>
-          <i className="bi bi-search" style={{color:"var(--muted)",fontSize:"0.78rem"}} />
-          <input
-            placeholder="Buscar usuario, IP, dispositivo…"
-            value={filtro}
-            onChange={e => setFiltro(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Tabla */}
-      <div className="card">
-        {loading ? (
-          <div style={{padding:"2.5rem",textAlign:"center",color:"var(--muted)"}}>
-            <i className="bi bi-hourglass-split" style={{fontSize:"1.4rem",display:"block",marginBottom:8}} />
-            Cargando registros...
-          </div>
-        ) : (
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Usuario</th>
-                <th>Dispositivo</th>
-                <th>IP</th>
-                <th>Fecha y hora</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtrados.length === 0 ? (
-                <tr><td colSpan={4} style={{textAlign:"center",padding:"2rem",color:"var(--muted)"}}>
-                  <i className="bi bi-journal-text" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.5rem"}} />
-                  Sin registros todavía
-                </td></tr>
-              ) : filtrados.map((l,i) => (
-                <tr key={i}>
-                  <td>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{width:26,height:26,borderRadius:"50%",background:"var(--pr-pale)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.68rem",fontWeight:700,color:"var(--pr)",flexShrink:0}}>
-                        {l.nombre?.[0]?.toUpperCase() ?? "?"}
-                      </div>
-                      <div>
-                        <div style={{fontWeight:600,fontSize:"0.8rem"}}>{l.nombre || "—"}</div>
-                        <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{l.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <i className={`bi ${l.dispositivo?.includes("Android")||l.dispositivo?.includes("iOS") ? "bi-phone" : "bi-laptop"}`}
-                        style={{color:"var(--muted)",fontSize:"0.82rem"}} />
-                      <span style={{fontSize:"0.78rem"}}>{l.dispositivo || "Desconocido"}</span>
-                    </div>
-                  </td>
-                  <td style={{fontSize:"0.78rem",color:"var(--muted)",fontFamily:"monospace"}}>{l.ip || "—"}</td>
-                  <td style={{fontSize:"0.75rem",color:"var(--muted)"}}>{formatFecha(l.creado_en)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ViewConfiguracion() {
-  return (
-    <div className="view-anim">
-      <div className="vh">
-        <div><div className="vh-title">Configuración</div><div className="vh-sub">Ajustes del sistema</div></div>
-        <button className="btn btn-em btn-sm"><i className="bi bi-floppy" /> Guardar cambios</button>
-      </div>
-      <div className="g2">
-        <div>
-          <div className="cfg-section">
-            <div className="cfg-hdr"><i className="bi bi-building" style={{color:"var(--accent)"}} /><span className="cfg-title">Información de la empresa</span></div>
-            <div className="cfg-body">
-              <div className="fg"><label className="fl">Nombre</label><input className="fi" defaultValue="Gestión 360 iA" /></div>
-              <div className="fg"><label className="fl">Dominio base</label><input className="fi" defaultValue="gestion360ia.com.ar" /></div>
-              <div className="fi-row">
-                <div className="fg"><label className="fl">Email soporte</label><input className="fi" defaultValue="soporte@gestion360ia.com.ar" /></div>
-                <div className="fg"><label className="fl">WhatsApp soporte</label><input className="fi" defaultValue="+54 11 5555-0000" /></div>
-              </div>
-            </div>
-          </div>
-          <div className="cfg-section">
-            <div className="cfg-hdr"><i className="bi bi-robot" style={{color:"var(--gold)"}} /><span className="cfg-title">Configuración IA</span></div>
-            <div className="cfg-body">
-              <div className="fg"><label className="fl">Modelo principal</label>
-                <select className="fi"><option>claude-sonnet-4-6 (Anthropic)</option><option>gpt-4o (OpenAI)</option></select>
-              </div>
-              <div className="fg"><label className="fl">Límite tokens/día</label><input className="fi" defaultValue="5.000.000" /></div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:"0.5rem",borderTop:"1px solid var(--border)"}}>
-                <div><div style={{fontSize:"0.8rem",fontWeight:600}}>Asistente IA por cliente</div><div style={{fontSize:"0.67rem",color:"var(--muted)"}}>Chatbot en portales</div></div>
-                <div className="tog on" onClick={e => e.currentTarget.classList.toggle("on")}><div className="tog-k" /></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div>
-          <div className="cfg-section">
-            <div className="cfg-hdr"><i className="bi bi-shield-check" style={{color:"var(--accent)"}} /><span className="cfg-title">Seguridad</span></div>
-            <div className="cfg-body">
-              {[["JWT + Refresh tokens","Autenticación segura",true],["HTTPS forzado","Redirigir HTTP → HTTPS",true],["Rate limiting","100 req/min por IP",true],["Log de auditoría","Registrar todas las acciones",true]].map(([t,s,on],i) => (
-                <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.45rem 0",borderBottom:"1px solid var(--border)"}}>
-                  <div><div style={{fontSize:"0.8rem",fontWeight:600}}>{t}</div><div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{s}</div></div>
-                  <div className={`tog${on?" on":""}`} onClick={e => e.currentTarget.classList.toggle("on")}><div className="tog-k" /></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ViewSistema() {
-  const [usuarios, setUsuarios] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(null);
-  const [tab, setTab] = useState("todos");
-
-  const cargar = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/usuarios");
-      const data = await res.json();
-      if (data.ok) setUsuarios(data.usuarios);
-    } catch (_) {}
-    setLoading(false);
-  };
-
-  useEffect(() => { cargar(); }, []);
-
-  const actualizar = async (id, cambios, email, nombre) => {
-    setSaving(id);
-    try {
-      if (cambios.status === "approved") {
-        await fetch("/api/usuarios/aprobar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, email, nombre }),
-        });
-      } else if (cambios.status === "rejected") {
-        await fetch("/api/usuarios/rechazar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, email, nombre }),
-        });
-      } else {
-        await fetch("/api/usuarios", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, ...cambios }),
-        });
-      }
-      await cargar();
-    } catch (_) {}
-    setSaving(null);
-  };
-
-  const eliminar = async (id, nombre) => {
-    if (!confirm(`¿Eliminar a ${nombre || "este usuario"}?`)) return;
-    setSaving(id);
-    try {
-      await fetch("/api/usuarios", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      await cargar();
-    } catch (_) {}
-    setSaving(null);
-  };
-
-  const STATUS_BADGE = {
-    approved: { cls: "bdg-em",    label: "Aprobado" },
-    pending:  { cls: "bdg-amber", label: "Pendiente" },
-    rejected: { cls: "bdg-red",   label: "Rechazado" },
-  };
-
-  const pendientes = usuarios.filter(u => u.status === "pending");
-  const lista = tab === "pendientes" ? pendientes : usuarios;
-
-  return (
-    <div className="view-anim">
-      <div className="vh">
-        <div>
-          <div className="vh-title">Usuarios y Permisos</div>
-          <div className="vh-sub">{usuarios.length} usuarios · {pendientes.length} pendientes de aprobación</div>
-        </div>
-        <button className="btn btn-out btn-sm" onClick={cargar}>
-          <i className="bi bi-arrow-clockwise" /> Actualizar
-        </button>
-      </div>
-
-      <div style={{display:"flex",gap:4,marginBottom:"0.9rem",borderBottom:"1px solid var(--border)"}}>
-        {[["todos","Todos","bi-people"],["pendientes","Pendientes","bi-hourglass-split"]].map(([id,label,icon]) => (
-          <button key={id} onClick={() => setTab(id)} style={{
-            padding:"0.45rem 0.9rem", border:"none", background:"none",
-            fontFamily:"inherit", fontSize:"0.8rem",
-            fontWeight: tab===id ? 700 : 500,
-            color: tab===id ? "var(--pr)" : "var(--sub)",
-            cursor:"pointer",
-            borderBottom: tab===id ? "2px solid var(--pr)" : "2px solid transparent",
-            display:"flex", alignItems:"center", gap:5, marginBottom:-1,
-          }}>
-            <i className={`bi ${icon}`} />{label}
-            {id==="pendientes" && pendientes.length > 0 && (
-              <span style={{background:"var(--red)",color:"#fff",fontSize:"0.57rem",fontWeight:700,padding:"0.1rem 0.4rem",borderRadius:9,marginLeft:2}}>{pendientes.length}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      <div className="card">
-        {loading ? (
-          <div style={{padding:"2.5rem",textAlign:"center",color:"var(--muted)"}}>
-            <i className="bi bi-hourglass-split" style={{fontSize:"1.4rem",display:"block",marginBottom:8}} />
-            Cargando usuarios...
-          </div>
-        ) : (
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Usuario</th><th>Rol</th><th>Estado</th><th>Activo</th>
-                <th>Último acceso</th><th>Registrado</th><th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lista.length === 0 ? (
-                <tr><td colSpan={7} style={{textAlign:"center",padding:"2rem",color:"var(--muted)"}}>
-                  {tab === "pendientes" ? "No hay solicitudes pendientes" : "No hay usuarios registrados"}
-                </td></tr>
-              ) : lista.map(u => (
-                <tr key={u.id}>
-                  <td>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{width:28,height:28,borderRadius:"50%",background:"var(--pr-pale)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",fontWeight:700,color:"var(--pr)",flexShrink:0}}>
-                        {u.nombre?.[0]?.toUpperCase() ?? "?"}
-                      </div>
-                      <div>
-                        <div style={{fontWeight:600,fontSize:"0.8rem"}}>{u.nombre || "—"}</div>
-                        <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{u.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <select value={u.rol} disabled={saving === u.id}
-                      onChange={e => actualizar(u.id, { rol: e.target.value }, u.email, u.nombre)}
-                      style={{padding:"0.25rem 0.5rem",borderRadius:"var(--r-sm)",border:"1px solid var(--border2)",fontSize:"0.75rem",fontFamily:"inherit",background:"var(--white)",cursor:"pointer"}}>
-                      <option value="superadmin">Superadmin</option>
-                      <option value="admin">Admin</option>
-                      <option value="vendedor">Vendedor</option>
-                      <option value="viewer">Viewer</option>
-                    </select>
-                  </td>
-                  <td><span className={`bdg ${STATUS_BADGE[u.status]?.cls ?? "bdg-moon"}`}>{STATUS_BADGE[u.status]?.label ?? u.status}</span></td>
-                  <td>
-                    <div className={`tog${u.activo ? " on" : ""}`}
-                      onClick={() => saving !== u.id && actualizar(u.id, { activo: u.activo ? 0 : 1 }, u.email, u.nombre)}
-                      style={{cursor: saving===u.id ? "not-allowed" : "pointer"}}>
-                      <div className="tog-k" />
-                    </div>
-                  </td>
-                  <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>
-                    {u.ultimo_acceso ? new Date(u.ultimo_acceso).toLocaleDateString("es-AR") : "Nunca"}
-                  </td>
-                  <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>
-                    {new Date(u.creado_en).toLocaleDateString("es-AR")}
-                  </td>
-                  <td>
-                    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                      {u.status === "pending" && (
-                        <>
-                          <button className="btn btn-em btn-xs" disabled={saving===u.id}
-                            onClick={() => actualizar(u.id, {status:"approved"}, u.email, u.nombre)}>
-                            <i className="bi bi-check-lg" /> Aprobar
-                          </button>
-                          <button className="btn btn-xs btn-out" disabled={saving===u.id}
-                            onClick={() => actualizar(u.id, {status:"rejected",activo:0}, u.email, u.nombre)}>
-                            <i className="bi bi-x-lg" /> Rechazar
-                          </button>
-                        </>
-                      )}
-                      {u.status === "approved" && (
-                        <button className="btn btn-xs btn-out" disabled={saving===u.id}
-                          onClick={() => actualizar(u.id, {status:"rejected",activo:0}, u.email, u.nombre)}>
-                          <i className="bi bi-slash-circle" /> Revocar
-                        </button>
-                      )}
-                      {u.status === "rejected" && (
-                        <button className="btn btn-xs btn-out" disabled={saving===u.id}
-                          onClick={() => actualizar(u.id, {status:"approved",activo:1}, u.email, u.nombre)}>
-                          <i className="bi bi-arrow-counterclockwise" /> Restaurar
-                        </button>
-                      )}
-                      <button className="btn btn-xs" disabled={saving===u.id}
-                        onClick={() => eliminar(u.id, u.nombre)}
-                        style={{background:"var(--red-bg)",color:"var(--red)",border:"1px solid #f5c6c6"}}>
-                        <i className="bi bi-trash3" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ViewPerfil() {
-  const { data: session } = useSession();
-
-  return (
-    <div className="view-anim" style={{maxWidth:680}}>
-      <div className="vh">
-        <div><div className="vh-title">Mi perfil</div><div className="vh-sub">Información de tu cuenta</div></div>
-      </div>
-
-      {/* Cuenta */}
-      <div className="cfg-section">
-        <div className="cfg-hdr"><i className="bi bi-person-circle" style={{color:"var(--pr)"}} /><span className="cfg-title">Cuenta</span></div>
-        <div className="cfg-body">
-          <div style={{display:"flex",alignItems:"center",gap:"1rem"}}>
-            {session?.user?.image ? (
-              <img src={session.user.image} alt="" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"2px solid var(--border)"}} referrerPolicy="no-referrer" />
-            ) : (
-              <div style={{width:56,height:56,borderRadius:"50%",background:"var(--pr)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.4rem",fontWeight:700,color:"#fff"}}>
-                {session?.user?.name?.[0]?.toUpperCase()}
-              </div>
-            )}
-            <div>
-              <div style={{fontSize:"1rem",fontWeight:700,color:"var(--text)"}}>{session?.user?.name}</div>
-              <div style={{fontSize:"0.78rem",color:"var(--muted)",marginTop:2}}>{session?.user?.email}</div>
-              <div style={{marginTop:6,display:"flex",alignItems:"center",gap:5}}>
-                <svg width="14" height="14" viewBox="0 0 18 18">
-                  <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
-                  <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-                  <path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
-                  <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.96L3.964 7.292C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-                </svg>
-                <span style={{fontSize:"0.7rem",color:"var(--muted)"}}>Cuenta Google · Solo lectura</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Soporte */}
-      <div className="cfg-section">
-        <div className="cfg-hdr"><i className="bi bi-headset" style={{color:"var(--pr)"}} /><span className="cfg-title">Soporte</span></div>
-        <div style={{padding:0}}>
-          <a href="mailto:soporte@gestion360ia.com.ar" style={{textDecoration:"none"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.7rem 1rem",cursor:"pointer",borderBottom:"1px solid var(--border)",transition:"background .12s"}}
-              onMouseEnter={e=>e.currentTarget.style.background="var(--bg)"}
-              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-              <i className="bi bi-envelope" style={{color:"var(--pr)",fontSize:"0.88rem",width:16,textAlign:"center"}} />
-              <div style={{flex:1}}>
-                <div style={{fontSize:"0.8rem",fontWeight:600,color:"var(--text)"}}>Contactar soporte</div>
-                <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>soporte@gestion360ia.com.ar</div>
-              </div>
-              <i className="bi bi-chevron-right" style={{color:"var(--muted)",fontSize:"0.7rem"}} />
-            </div>
-          </a>
-          <div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.7rem 1rem",cursor:"pointer",transition:"background .12s"}}
-            onMouseEnter={e=>e.currentTarget.style.background="var(--bg)"}
-            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-            <i className="bi bi-whatsapp" style={{color:"#25D366",fontSize:"0.88rem",width:16,textAlign:"center"}} />
-            <div style={{flex:1}}>
-              <div style={{fontSize:"0.8rem",fontWeight:600,color:"var(--text)"}}>WhatsApp soporte</div>
-              <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>Respuesta en horario comercial</div>
-            </div>
-            <i className="bi bi-chevron-right" style={{color:"var(--muted)",fontSize:"0.7rem"}} />
-          </div>
-        </div>
-      </div>
-
-      {/* Información */}
-      <div className="cfg-section">
-        <div className="cfg-hdr"><i className="bi bi-info-circle" style={{color:"var(--pr)"}} /><span className="cfg-title">Información</span></div>
-        <div style={{padding:0}}>
-          {[
-            {icon:"bi-book",label:"Documentación",url:"https://gestion360ia.com.ar/docs"},
-            {icon:"bi-shield-check",label:"Política de privacidad",url:"https://gestion360ia.com.ar/privacidad"},
-            {icon:"bi-file-text",label:"Términos de uso",url:"https://gestion360ia.com.ar/terminos"},
-          ].map((item,i,arr) => (
-            <a key={i} href={item.url} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.7rem 1rem",cursor:"pointer",borderBottom: i<arr.length-1 ? "1px solid var(--border)" : "none",transition:"background .12s"}}
-                onMouseEnter={e=>e.currentTarget.style.background="var(--bg)"}
-                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                <i className={`bi ${item.icon}`} style={{color:"var(--pr)",fontSize:"0.88rem",width:16,textAlign:"center"}} />
-                <div style={{flex:1,fontSize:"0.8rem",fontWeight:600,color:"var(--text)"}}>{item.label}</div>
-                <i className="bi bi-box-arrow-up-right" style={{color:"var(--muted)",fontSize:"0.7rem"}} />
-              </div>
-            </a>
-          ))}
-        </div>
-      </div>
-
-      {/* Cerrar sesión */}
-      <div className="cfg-section">
-        <div className="cfg-body">
-          <button
-            className="btn"
-            onClick={() => signOut({ callbackUrl: "/" })}
-            style={{width:"100%",justifyContent:"center",background:"var(--red-bg)",color:"var(--red)",border:"1px solid #f5c6c6",fontWeight:600}}>
-            <i className="bi bi-box-arrow-right" /> Cerrar sesión
-          </button>
-        </div>
-      </div>
-
-    </div>
-  );
-}
-
-const RUBROS_VENTA = [
-  "Hotel","Salón de eventos","Consultorio / Clínica","Spa / Centro de bienestar",
-  "Inmobiliaria","Restaurante / Local de comida","Contador / Estudio contable",
-  "Abogado / Estudio jurídico","Gestor de seguros","Logística / Distribución","GovTech","Otro",
-];
-
+/* ══ VENTAS ══ */
+const RUBROS_VENTA = RUBROS;
 const ESTADO_LEAD = {
-  nuevo:      { label:"Nuevo",      cls:"bdg-blue" },
-  contactado: { label:"Contactado", cls:"bdg-amber" },
-  demo:       { label:"Demo",       cls:"bdg-pine" },
-  propuesta:  { label:"Propuesta",  cls:"bdg-gold" },
-  cerrado:    { label:"Cerrado",    cls:"bdg-em" },
-  perdido:    { label:"Perdido",    cls:"bdg-red" },
+  nuevo:{label:"Nuevo",cls:"bdg-blue"},
+  contactado:{label:"Contactado",cls:"bdg-amber"},
+  demo:{label:"Demo",cls:"bdg-pine"},
+  propuesta:{label:"Propuesta",cls:"bdg-gold"},
+  cerrado:{label:"Cerrado",cls:"bdg-em"},
+  perdido:{label:"Perdido",cls:"bdg-red"},
 };
-
 const TIPO_ACTIVIDAD = {
-  llamada:  { icon:"bi-telephone", color:"var(--pr)" },
-  email:    { icon:"bi-envelope",  color:"var(--accent)" },
-  whatsapp: { icon:"bi-whatsapp", color:"#25D366" },
-  reunion:  { icon:"bi-calendar-check", color:"var(--em-d)" },
-  nota:     { icon:"bi-sticky",   color:"var(--muted)" },
+  llamada:{icon:"bi-telephone",color:"var(--pr)"},
+  email:{icon:"bi-envelope",color:"var(--accent)"},
+  whatsapp:{icon:"bi-whatsapp",color:"#25D366"},
+  reunion:{icon:"bi-calendar-check",color:"var(--em-d)"},
+  nota:{icon:"bi-sticky",color:"var(--muted)"},
 };
+const LEAD_VACIO = { nombre:"",empresa:"",email:"",telefono:"",rubro_interes:"",plan_interes:"",fuente:"web",valor_mrr_estimado:"",notas:"" };
+const ACT_VACIO = { tipo:"nota",descripcion:"",proxima_accion:"",fecha_proxima_accion:"" };
 
-const LEAD_VACIO = {
-  nombre:"", empresa:"", email:"", telefono:"",
-  rubro_interes:"", plan_interes:"", fuente:"web",
-  valor_mrr_estimado:"", notas:"",
-};
-
-const ACT_VACIO = {
-  tipo:"nota", descripcion:"", proxima_accion:"", fecha_proxima_accion:"",
-};
-
-function ViewVentas() {
-  const { data: session } = useSession();
+function ViewVentas({ session }) {
   const [tab, setTab] = useState("leads");
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1642,126 +652,47 @@ function ViewVentas() {
       const uid = session?.user?.id || "";
       const params = new URLSearchParams({ rol, usuario_id: uid });
       if (filtroEstado) params.append("estado", filtroEstado);
-      const res = await fetch(`/api/ventas/leads?${params}`);
-      const data = await res.json();
-      if (data.ok) setLeads(data.leads);
-    } catch (_) {}
+      const r = await fetch(`/api/ventas/leads?${params}`);
+      const d = await r.json();
+      if (d.ok) setLeads(d.leads);
+    } catch(_){}
     setLoading(false);
   };
 
   const cargarActividades = async (lead_id) => {
     setLoadingAct(true);
-    try {
-      const res = await fetch(`/api/ventas/actividades?lead_id=${lead_id}`);
-      const data = await res.json();
-      if (data.ok) setActividades(data.actividades);
-    } catch (_) {}
+    try { const r=await fetch(`/api/ventas/actividades?lead_id=${lead_id}`); const d=await r.json(); if(d.ok) setActividades(d.actividades); } catch(_){}
     setLoadingAct(false);
   };
 
   useEffect(() => { cargar(); }, [filtroEstado]);
 
-  const abrirNuevo = () => {
-    setEditando(null);
-    setForm(LEAD_VACIO);
-    setError("");
-    setModal(true);
-  };
-
-  const abrirEditar = (l) => {
-    setEditando(l);
-    setForm({
-      nombre: l.nombre || "",
-      empresa: l.empresa || "",
-      email: l.email || "",
-      telefono: l.telefono || "",
-      rubro_interes: l.rubro_interes || "",
-      plan_interes: l.plan_interes || "",
-      fuente: l.fuente || "web",
-      valor_mrr_estimado: l.valor_mrr_estimado || "",
-      notas: l.notas || "",
-    });
-    setError("");
-    setModal(true);
-  };
+  const abrirNuevo = () => { setEditando(null); setForm(LEAD_VACIO); setError(""); setModal(true); };
+  const abrirEditar = (l) => { setEditando(l); setForm({nombre:l.nombre||"",empresa:l.empresa||"",email:l.email||"",telefono:l.telefono||"",rubro_interes:l.rubro_interes||"",plan_interes:l.plan_interes||"",fuente:l.fuente||"web",valor_mrr_estimado:l.valor_mrr_estimado||"",notas:l.notas||""}); setError(""); setModal(true); };
 
   const guardar = async () => {
-    if (!form.nombre) { setError("Nombre es obligatorio"); return; }
+    if(!form.nombre){ setError("Nombre es obligatorio"); return; }
     setSaving(true); setError("");
-    try {
-      const method = editando ? "PATCH" : "POST";
-      const body = editando ? { id: editando.id, ...form } : form;
-      const res = await fetch("/api/ventas/leads", {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!data.ok) { setError(data.error || "Error al guardar"); setSaving(false); return; }
-      setModal(false);
-      await cargar();
-    } catch (_) { setError("Error de conexión"); }
+    try { const m=editando?"PATCH":"POST"; const b=editando?{id:editando.id,...form}:form; const r=await fetch("/api/ventas/leads",{method:m,headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}); const d=await r.json(); if(!d.ok){setError(d.error||"Error al guardar");setSaving(false);return;} setModal(false); await cargar(); } catch(_){setError("Error de conexión");}
     setSaving(false);
   };
 
-  const cambiarEstado = async (id, estado) => {
-    try {
-      await fetch("/api/ventas/leads", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, estado }),
-      });
-      await cargar();
-    } catch (_) {}
-  };
-
-  const eliminar = async (l) => {
-    if (!confirm(`¿Eliminar lead ${l.nombre}?`)) return;
-    try {
-      await fetch("/api/ventas/leads", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: l.id }),
-      });
-      if (leadActivo?.id === l.id) setLeadActivo(null);
-      await cargar();
-    } catch (_) {}
-  };
-
-  const abrirLead = async (l) => {
-    setLeadActivo(l);
-    setTab("detalle");
-    await cargarActividades(l.id);
-  };
-
+  const cambiarEstado = async (id, estado) => { try { await fetch("/api/ventas/leads",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,estado})}); await cargar(); } catch(_){} };
+  const eliminar = async (l) => { if(!confirm(`¿Eliminar lead ${l.nombre}?`)) return; try { await fetch("/api/ventas/leads",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:l.id})}); if(leadActivo?.id===l.id) setLeadActivo(null); await cargar(); } catch(_){} };
+  const abrirLead = async (l) => { setLeadActivo(l); setTab("detalle"); await cargarActividades(l.id); };
   const guardarActividad = async () => {
-    if (!formAct.tipo) return;
+    if(!formAct.tipo) return;
     setSaving(true);
-    try {
-      await fetch("/api/ventas/actividades", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lead_id: leadActivo.id,
-          usuario_id: session?.user?.id || 1,
-          ...formAct,
-        }),
-      });
-      setModalAct(false);
-      setFormAct(ACT_VACIO);
-      await cargarActividades(leadActivo.id);
-    } catch (_) {}
+    try { await fetch("/api/ventas/actividades",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({lead_id:leadActivo.id,usuario_id:session?.user?.id||1,...formAct})}); setModalAct(false); setFormAct(ACT_VACIO); await cargarActividades(leadActivo.id); } catch(_){}
     setSaving(false);
   };
 
-  const f = (v) => setForm(p => ({ ...p, ...v }));
-  const fa = (v) => setFormAct(p => ({ ...p, ...v }));
-
-  // KPIs
-  const nuevos     = leads.filter(l => l.estado === "nuevo").length;
-  const enProceso  = leads.filter(l => ["contactado","demo","propuesta"].includes(l.estado)).length;
-  const cerrados   = leads.filter(l => l.estado === "cerrado").length;
-  const mrrTotal   = leads.filter(l => l.estado !== "perdido").reduce((s,l) => s + (Number(l.valor_mrr_estimado)||0), 0);
+  const f = (v) => setForm(p=>({...p,...v}));
+  const fa = (v) => setFormAct(p=>({...p,...v}));
+  const nuevos    = leads.filter(l=>l.estado==="nuevo").length;
+  const enProceso = leads.filter(l=>["contactado","demo","propuesta"].includes(l.estado)).length;
+  const cerrados  = leads.filter(l=>l.estado==="cerrado").length;
+  const mrrTotal  = leads.filter(l=>l.estado!=="perdido").reduce((s,l)=>s+(Number(l.valor_mrr_estimado)||0),0);
 
   return (
     <div className="view-anim">
@@ -1773,133 +704,599 @@ function ViewVentas() {
         </div>
       </div>
 
-      {/* KPIs */}
       <div className="g4" style={{marginBottom:"0.9rem"}}>
-        <div className="kpi">
-          <div className="kpi-ico" style={{background:"var(--blue-bg)"}}><i className="bi bi-person-plus" style={{color:"var(--blue)"}} /></div>
-          <div className="kpi-val">{nuevos}</div>
-          <div className="kpi-lbl">Leads nuevos</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-ico" style={{background:"var(--amber-bg)"}}><i className="bi bi-hourglass-split" style={{color:"var(--amber)"}} /></div>
-          <div className="kpi-val">{enProceso}</div>
-          <div className="kpi-lbl">En proceso</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-ico" style={{background:"var(--em-pale)"}}><i className="bi bi-check-circle" style={{color:"var(--em-d)"}} /></div>
-          <div className="kpi-val">{cerrados}</div>
-          <div className="kpi-lbl">Cerrados</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-ico" style={{background:"var(--accent-pale)"}}><i className="bi bi-cash-coin" style={{color:"var(--accent)"}} /></div>
-          <div className="kpi-val" style={{fontSize:"1.3rem"}}>
-            {mrrTotal > 0 ? `$${mrrTotal.toLocaleString("es-AR")}` : "—"}
-          </div>
-          <div className="kpi-lbl">MRR estimado</div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div style={{display:"flex",gap:4,marginBottom:"0.9rem",borderBottom:"1px solid var(--border)"}}>
-        {[["leads","Leads","bi-people"],["detalle","Detalle / Actividades","bi-journal-text"]].map(([id,label,icon]) => (
-          <button key={id} onClick={() => setTab(id)} style={{
-            padding:"0.45rem 0.9rem", border:"none", background:"none",
-            fontFamily:"inherit", fontSize:"0.8rem",
-            fontWeight: tab===id ? 700 : 500,
-            color: tab===id ? "var(--pr)" : "var(--sub)",
-            cursor:"pointer",
-            borderBottom: tab===id ? "2px solid var(--pr)" : "2px solid transparent",
-            display:"flex", alignItems:"center", gap:5, marginBottom:-1,
-          }}>
-            <i className={`bi ${icon}`} />{label}
-          </button>
+        {[["bi-person-plus","var(--blue-bg)","var(--blue)",nuevos,"Leads nuevos"],["bi-hourglass-split","var(--amber-bg)","var(--amber)",enProceso,"En proceso"],["bi-check-circle","var(--em-pale)","var(--em-d)",cerrados,"Cerrados"],["bi-cash-coin","var(--accent-pale)","var(--accent)",mrrTotal>0?`$${mrrTotal.toLocaleString("es-AR")}`:"—","MRR estimado"]].map(([ico,bg,color,val,lbl],i)=>(
+          <div key={i} className="kpi"><div className="kpi-ico" style={{background:bg}}><i className={`bi ${ico}`} style={{color}} /></div><div className="kpi-val" style={{fontSize:i===3?"1.2rem":"1.85rem"}}>{val}</div><div className="kpi-lbl">{lbl}</div></div>
         ))}
       </div>
 
-      {/* TAB LEADS */}
-      {tab === "leads" && (
+      <Tabs tabs={[["leads","Leads","bi-people"],["detalle","Detalle","bi-journal-text"]]} active={tab} onChange={setTab} />
+
+      {tab==="leads" && (
         <>
-          {/* Filtro estado */}
           <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.7rem",flexWrap:"wrap"}}>
-            {["","nuevo","contactado","demo","propuesta","cerrado","perdido"].map(e => (
-              <button key={e} onClick={() => setFiltroEstado(e)}
-                className="btn btn-xs"
-                style={{
-                  background: filtroEstado===e ? "var(--pr)" : "var(--bg)",
-                  color: filtroEstado===e ? "#fff" : "var(--sub)",
-                  border: `1px solid ${filtroEstado===e ? "var(--pr)" : "var(--border)"}`,
-                }}>
-                {e === "" ? "Todos" : ESTADO_LEAD[e]?.label}
+            {["","nuevo","contactado","demo","propuesta","cerrado","perdido"].map(e=>(
+              <button key={e} onClick={()=>setFiltroEstado(e)} className="btn btn-xs"
+                style={{background:filtroEstado===e?"var(--pr)":"var(--bg)",color:filtroEstado===e?"#fff":"var(--sub)",border:`1px solid ${filtroEstado===e?"var(--pr)":"var(--border)"}`}}>
+                {e===""?"Todos":ESTADO_LEAD[e]?.label}
               </button>
             ))}
           </div>
+          <div className="card">
+            {loading ? <Cargando texto="Cargando leads..." /> : (
+              <table className="tbl">
+                <thead><tr><th>Contacto</th><th>Rubro</th><th>Plan</th><th>Fuente</th><th>Estado</th><th>MRR Est.</th><th>Vendedor</th><th></th></tr></thead>
+                <tbody>
+                  {leads.length===0 ? <tr><td colSpan={8} style={{textAlign:"center",padding:"2.5rem",color:"var(--muted)"}}><i className="bi bi-graph-up-arrow" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.5rem"}} />No hay leads todavía</td></tr>
+                  : leads.map(l=>(
+                    <tr key={l.id} onClick={()=>abrirLead(l)}>
+                      <td><div style={{display:"flex",alignItems:"center",gap:8}}><Av letra={l.nombre?.[0]} size={26} /><div><div style={{fontWeight:600,fontSize:"0.8rem"}}>{l.nombre}</div>{l.empresa&&<div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{l.empresa}</div>}</div></div></td>
+                      <td style={{fontSize:"0.75rem",color:"var(--text2)"}}>{l.rubro_interes||"—"}</td>
+                      <td>{l.plan_interes?<span className="bdg bdg-blue">{l.plan_interes}</span>:<span style={{color:"var(--muted)"}}>—</span>}</td>
+                      <td style={{fontSize:"0.75rem",color:"var(--muted)"}}>{l.fuente}</td>
+                      <td><select value={l.estado} onClick={e=>e.stopPropagation()} onChange={e=>cambiarEstado(l.id,e.target.value)} style={{padding:"0.22rem 0.5rem",borderRadius:"var(--r-sm)",border:"1px solid var(--border2)",fontSize:"0.72rem",fontFamily:"inherit",background:"var(--white)",cursor:"pointer"}}>{Object.entries(ESTADO_LEAD).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></td>
+                      <td style={{fontSize:"0.78rem",fontWeight:600}}>{l.valor_mrr_estimado?`$${Number(l.valor_mrr_estimado).toLocaleString("es-AR")}`:"—"}</td>
+                      <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>{l.vendedor_nombre||<span style={{color:"var(--border2)"}}>Sin asignar</span>}</td>
+                      <td onClick={e=>e.stopPropagation()}><div style={{display:"flex",gap:4}}>
+                        <button className="btn btn-xs btn-out" onClick={()=>abrirEditar(l)}><i className="bi bi-pencil" /></button>
+                        <button className="btn btn-xs" onClick={()=>eliminar(l)} style={{background:"var(--red-bg)",color:"var(--red)",border:"1px solid #f5c6c6"}}><i className="bi bi-trash3" /></button>
+                      </div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      )}
+
+      {tab==="detalle" && (
+        !leadActivo ? (
+          <div className="card" style={{padding:"2.5rem",textAlign:"center",color:"var(--muted)"}}>
+            <i className="bi bi-hand-index" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.5rem"}} />
+            Seleccioná un lead de la pestaña Leads para ver su detalle
+          </div>
+        ) : (
+          <div className="g2">
+            <div className="card">
+              <div className="ch"><i className="bi bi-person-circle" style={{color:"var(--pr)"}} /><span className="ch-title">{leadActivo.nombre}</span><div className="ch-act"><span className={`bdg ${ESTADO_LEAD[leadActivo.estado]?.cls}`}>{ESTADO_LEAD[leadActivo.estado]?.label}</span></div></div>
+              <div className="cb" style={{display:"flex",flexDirection:"column",gap:"0.5rem"}}>
+                {[["Empresa",leadActivo.empresa],["Email",leadActivo.email],["Teléfono",leadActivo.telefono],["Rubro",leadActivo.rubro_interes],["Plan interés",leadActivo.plan_interes],["Fuente",leadActivo.fuente],["MRR estimado",leadActivo.valor_mrr_estimado?`$${Number(leadActivo.valor_mrr_estimado).toLocaleString("es-AR")}`:null],["Vendedor",leadActivo.vendedor_nombre]].map(([k,v])=>v?(
+                  <div key={k} style={{display:"flex",gap:"0.5rem",fontSize:"0.8rem"}}><span style={{color:"var(--muted)",width:90,flexShrink:0}}>{k}</span><span style={{color:"var(--text)",fontWeight:500}}>{v}</span></div>
+                ):null)}
+                {leadActivo.notas&&<div style={{marginTop:"0.5rem",padding:"0.6rem",background:"var(--bg)",borderRadius:"var(--r-sm)",fontSize:"0.78rem",color:"var(--text2)"}}>{leadActivo.notas}</div>}
+              </div>
+            </div>
+            <div className="card">
+              <div className="ch"><i className="bi bi-journal-text" style={{color:"var(--accent)"}} /><span className="ch-title">Actividades</span><div className="ch-act"><button className="btn btn-em btn-xs" onClick={()=>setModalAct(true)}><i className="bi bi-plus-lg" /> Registrar</button></div></div>
+              <div className="cb" style={{padding:0}}>
+                {loadingAct ? <div style={{padding:"1.5rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Cargando...</div>
+                : actividades.length===0 ? <div style={{padding:"1.5rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Sin actividades registradas</div>
+                : actividades.map((a,i)=>(
+                  <div key={a.id} style={{display:"flex",gap:"0.65rem",padding:"0.7rem 1rem",borderBottom:i<actividades.length-1?"1px solid var(--border)":"none"}}>
+                    <div style={{width:28,height:28,borderRadius:7,background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      <i className={`bi ${TIPO_ACTIVIDAD[a.tipo]?.icon||"bi-dot"}`} style={{color:TIPO_ACTIVIDAD[a.tipo]?.color,fontSize:"0.82rem"}} />
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:"0.78rem",color:"var(--text)",lineHeight:1.4}}>{a.descripcion||"—"}</div>
+                      {a.proxima_accion&&<div style={{fontSize:"0.67rem",color:"var(--accent)",marginTop:2}}>→ {a.proxima_accion} {a.fecha_proxima_accion?`(${new Date(a.fecha_proxima_accion).toLocaleDateString("es-AR")})`:""}</div>}
+                      <div style={{fontSize:"0.65rem",color:"var(--muted)",marginTop:2}}>{a.usuario_nombre} · {new Date(a.fecha_actividad).toLocaleDateString("es-AR")}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      )}
+
+      {modal && (
+        <Modal title={editando?"Editar lead":"Nuevo lead"} onClose={()=>setModal(false)}>
+          <div style={{padding:"1.2rem",display:"flex",flexDirection:"column",gap:"0.7rem",maxHeight:"70vh",overflowY:"auto"}}>
+            <div className="fi-row"><div className="fg"><label className="fl">Nombre *</label><input className="fi" value={form.nombre} onChange={e=>f({nombre:e.target.value})} placeholder="Juan García" /></div><div className="fg"><label className="fl">Empresa</label><input className="fi" value={form.empresa} onChange={e=>f({empresa:e.target.value})} placeholder="Hotel Aurora" /></div></div>
+            <div className="fi-row"><div className="fg"><label className="fl">Email</label><input className="fi" value={form.email} onChange={e=>f({email:e.target.value})} /></div><div className="fg"><label className="fl">Teléfono</label><input className="fi" value={form.telefono} onChange={e=>f({telefono:e.target.value})} /></div></div>
+            <div className="fi-row"><div className="fg"><label className="fl">Rubro de interés</label><select className="fi" value={form.rubro_interes} onChange={e=>f({rubro_interes:e.target.value})}><option value="">Seleccionar…</option>{RUBROS_VENTA.map(r=><option key={r} value={r}>{r}</option>)}</select></div><div className="fg"><label className="fl">Plan de interés</label><select className="fi" value={form.plan_interes} onChange={e=>f({plan_interes:e.target.value})}><option value="">Sin definir</option><option value="starter">Starter</option><option value="pro">Pro</option><option value="plan_ia">Plan IA</option><option value="enterprise">Enterprise</option></select></div></div>
+            <div className="fi-row"><div className="fg"><label className="fl">Fuente</label><select className="fi" value={form.fuente} onChange={e=>f({fuente:e.target.value})}><option value="web">Web</option><option value="referido">Referido</option><option value="ads">Ads</option><option value="evento">Evento</option><option value="cold">Cold outreach</option></select></div><div className="fg"><label className="fl">MRR estimado (ARS)</label><input className="fi" type="number" value={form.valor_mrr_estimado} onChange={e=>f({valor_mrr_estimado:e.target.value})} placeholder="0" /></div></div>
+            <div className="fg"><label className="fl">Notas</label><textarea className="fi" rows={3} value={form.notas} onChange={e=>f({notas:e.target.value})} style={{resize:"vertical"}} /></div>
+            {error && <ErrorMsg msg={error} />}
+          </div>
+          <ModalFooter onCancel={()=>setModal(false)} onConfirm={guardar} saving={saving} labelConfirm={editando?"Guardar cambios":"Crear lead"} />
+        </Modal>
+      )}
+
+      {modalAct && (
+        <Modal title="Registrar actividad" onClose={()=>setModalAct(false)}>
+          <div style={{padding:"1.2rem",display:"flex",flexDirection:"column",gap:"0.7rem"}}>
+            <div className="fg"><label className="fl">Tipo</label><select className="fi" value={formAct.tipo} onChange={e=>fa({tipo:e.target.value})}><option value="nota">Nota</option><option value="llamada">Llamada</option><option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="reunion">Reunión</option></select></div>
+            <div className="fg"><label className="fl">Descripción</label><textarea className="fi" rows={3} value={formAct.descripcion} onChange={e=>fa({descripcion:e.target.value})} style={{resize:"vertical"}} /></div>
+            <div className="fg"><label className="fl">Próxima acción</label><input className="fi" value={formAct.proxima_accion} onChange={e=>fa({proxima_accion:e.target.value})} /></div>
+            <div className="fg"><label className="fl">Fecha próxima acción</label><input className="fi" type="date" value={formAct.fecha_proxima_accion} onChange={e=>fa({fecha_proxima_accion:e.target.value})} /></div>
+          </div>
+          <ModalFooter onCancel={()=>setModalAct(false)} onConfirm={guardarActividad} saving={saving} labelConfirm="Registrar" />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ══ CONVERSACIONES (Ventas) ══ */
+const CANAL_ICON = { whatsapp:"bi-whatsapp", email:"bi-envelope", web:"bi-globe", instagram:"bi-instagram", facebook:"bi-facebook" };
+const CANAL_COLOR = { whatsapp:"#25D366", email:"var(--accent)", web:"var(--pr)", instagram:"#E1306C", facebook:"#1877F2" };
+
+function ViewConversaciones({ session }) {
+  const [convs, setConvs] = useState([]);
+  const [activa, setActiva] = useState(null);
+  const [mensajes, setMensajes] = useState([]);
+  const [texto, setTexto] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadingMsg, setLoadingMsg] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [filtro, setFiltro] = useState("nueva");
+  const [vendedores, setVendedores] = useState([]);
+  const [modalAsignar, setModalAsignar] = useState(false);
+  const [asignandoId, setAsignandoId] = useState(null);
+  const msgsRef = useRef(null);
+
+  const cargar = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filtro && filtro !== "todas") params.append("estado", filtro);
+      const r = await fetch(`/api/ventas/conversaciones?${params}`);
+      const d = await r.json();
+      if (Array.isArray(d)) setConvs(d);
+    } catch(_){}
+    setLoading(false);
+  };
+
+  const cargarMensajes = async (conv) => {
+    setActiva(conv);
+    setLoadingMsg(true);
+    try {
+      const r = await fetch(`/api/ventas/mensajes?conversacion_id=${conv.id}`);
+      const d = await r.json();
+      if (Array.isArray(d)) setMensajes(d);
+    } catch(_){}
+    setLoadingMsg(false);
+    setTimeout(() => msgsRef.current?.scrollTo(0, 99999), 100);
+  };
+
+  const cargarVendedores = async () => {
+    try {
+      const r = await fetch("/api/usuarios");
+      const d = await r.json();
+      if (d.ok) setVendedores(d.usuarios.filter(u => ["vendedor","admin","superadmin"].includes(u.rol) && u.activo));
+    } catch(_){}
+  };
+
+  useEffect(() => { cargar(); cargarVendedores(); }, [filtro]);
+
+  const enviar = async () => {
+    if (!texto.trim() || !activa) return;
+    setEnviando(true);
+    try {
+      await fetch("/api/ventas/mensajes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversacion_id: activa.id, direccion: "saliente", contenido: texto }),
+      });
+      setTexto("");
+      await cargarMensajes(activa);
+    } catch(_){}
+    setEnviando(false);
+  };
+
+  const asignar = async (conv_id, usuario_id) => {
+    try {
+      await fetch("/api/ventas/conversaciones", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: conv_id, asignado_a: usuario_id }),
+      });
+      setModalAsignar(false);
+      await cargar();
+      if (activa?.id === conv_id) setActiva(p => ({ ...p, asignado_a: usuario_id, vendedor_nombre: vendedores.find(v=>v.id===usuario_id)?.nombre }));
+    } catch(_){}
+  };
+
+  const sinAsignar = convs.filter(c => !c.asignado_a).length;
+
+  return (
+    <div className="comm-wrap view-anim">
+      {/* Lista */}
+      <div className="conv-list">
+        <div className="conv-hdr">
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div className="conv-hdr-title">Conversaciones</div>
+            {sinAsignar > 0 && <span className="bdg bdg-amber">{sinAsignar} sin asignar</span>}
+          </div>
+          <div style={{display:"flex",gap:4,marginTop:"0.5rem"}}>
+            {[["nueva","Nuevas"],["en_curso","En curso"],["cerrada","Cerradas"],["todas","Todas"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setFiltro(v)}
+                style={{flex:1,padding:"0.2rem 0",border:"none",borderRadius:"var(--r-sm)",fontSize:"0.62rem",fontWeight:filtro===v?700:500,background:filtro===v?"var(--pr)":"var(--bg)",color:filtro===v?"#fff":"var(--muted)",cursor:"pointer"}}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="conv-search"><i className="bi bi-search" style={{color:"var(--muted)",fontSize:"0.75rem"}} /><input placeholder="Buscar…" /></div>
+        <div className="conv-items">
+          {loading ? <div style={{padding:"1.5rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Cargando...</div>
+          : convs.length === 0 ? <div style={{padding:"1.5rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Sin conversaciones</div>
+          : convs.map(c => (
+            <div key={c.id} className={`conv-item${activa?.id===c.id?" on":""}`} onClick={()=>cargarMensajes(c)}>
+              <div className="conv-av" style={{position:"relative"}}>
+                {(c.contacto_nombre||"?")[0].toUpperCase()}
+                <span style={{position:"absolute",bottom:-1,right:-1,width:10,height:10,borderRadius:"50%",background:CANAL_COLOR[c.canal]||"var(--muted)",border:"1.5px solid #fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                </span>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div className="conv-name">{c.contacto_nombre||"Sin nombre"}</div>
+                  <div className="conv-time">{c.ultimo_mensaje_at ? new Date(c.ultimo_mensaje_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"}) : ""}</div>
+                </div>
+                <div className="conv-prev">{c.ultimo_mensaje||"Sin mensajes"}</div>
+                <div style={{marginTop:2,display:"flex",gap:4,alignItems:"center"}}>
+                  {!c.asignado_a ? <span style={{fontSize:"0.6rem",background:"var(--amber-bg)",color:"var(--amber)",padding:"0 5px",borderRadius:4,fontWeight:600}}>Sin asignar</span>
+                  : <span style={{fontSize:"0.6rem",color:"var(--muted)"}}>{c.vendedor_nombre}</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Chat */}
+      <div className="chat-panel">
+        {!activa ? (
+          <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:"0.5rem",color:"var(--muted)"}}>
+            <i className="bi bi-chat-dots" style={{fontSize:"2rem"}} />
+            <div style={{fontSize:"0.82rem"}}>Seleccioná una conversación</div>
+          </div>
+        ) : (
+          <>
+            <div className="chat-hdr">
+              <div className="conv-av">{(activa.contacto_nombre||"?")[0].toUpperCase()}</div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:600,fontSize:"0.82rem"}}>{activa.contacto_nombre||"Sin nombre"}</div>
+                <div style={{fontSize:"0.67rem",color:"var(--muted)",display:"flex",alignItems:"center",gap:6}}>
+                  <i className={`bi ${CANAL_ICON[activa.canal]||"bi-chat"}`} style={{color:CANAL_COLOR[activa.canal]}} />
+                  {activa.canal} · {activa.contacto_telefono||activa.contacto_email||""}
+                </div>
+              </div>
+              {/* Asignación */}
+              <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                {activa.asignado_a ? (
+                  <div style={{fontSize:"0.72rem",color:"var(--muted)",display:"flex",alignItems:"center",gap:4}}>
+                    <Av letra={activa.vendedor_nombre?.[0]} size={22} />
+                    <span>{activa.vendedor_nombre}</span>
+                  </div>
+                ) : (
+                  <span className="bdg bdg-amber">Sin asignar</span>
+                )}
+                <button className="btn btn-xs btn-out" onClick={()=>{ setAsignandoId(activa.id); setModalAsignar(true); }}>
+                  {activa.asignado_a ? "Reasignar" : "Asignar"}
+                </button>
+                <button className="btn btn-xs btn-out" onClick={()=>cargar()}>
+                  <i className="bi bi-arrow-clockwise" />
+                </button>
+              </div>
+            </div>
+
+            <div className="chat-msgs" ref={msgsRef}>
+              {loadingMsg ? <div style={{textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Cargando mensajes...</div>
+              : mensajes.length === 0 ? <div style={{textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Sin mensajes todavía</div>
+              : mensajes.map(m => (
+                <div key={m.id}>
+                  <div className={`msg ${m.direccion==="saliente"?"msg-out":"msg-in"}`}>
+                    {m.contenido}
+                    <div className="msg-t">
+                      {new Date(m.creado_en).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                      {m.direccion==="saliente" && <span style={{marginLeft:4}}>{m.enviado_por_nombre||"Vos"}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="chat-input-bar">
+              <input className="chat-inp" placeholder="Escribir mensaje…" value={texto} onChange={e=>setTexto(e.target.value)}
+                onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); enviar(); } }} />
+              <button className="btn btn-em btn-sm" onClick={enviar} disabled={enviando||!texto.trim()}>
+                <i className="bi bi-send" />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Modal asignar */}
+      {modalAsignar && (
+        <Modal title="Asignar vendedor" onClose={()=>setModalAsignar(false)} maxWidth={360}>
+          <div style={{padding:"1rem"}}>
+            {vendedores.length===0 ? <div style={{textAlign:"center",color:"var(--muted)",fontSize:"0.8rem"}}>No hay vendedores disponibles</div>
+            : vendedores.map(v=>(
+              <div key={v.id} onClick={()=>asignar(asignandoId,v.id)}
+                style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.55rem 0.7rem",borderRadius:"var(--r-sm)",cursor:"pointer",transition:"background .12s"}}
+                onMouseEnter={e=>e.currentTarget.style.background="var(--bg)"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <Av letra={v.nombre?.[0]} size={30} />
+                <div>
+                  <div style={{fontSize:"0.82rem",fontWeight:600,color:"var(--text)"}}>{v.nombre}</div>
+                  <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{v.rol} · {v.email}</div>
+                </div>
+                {activa?.asignado_a===v.id && <i className="bi bi-check2" style={{marginLeft:"auto",color:"var(--em)"}} />}
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ══ VENDEDORES ══ */
+function ViewVendedores() {
+  const [vendedores, setVendedores] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const cargar = async () => {
+      setLoading(true);
+      try {
+        const r = await fetch("/api/usuarios");
+        const d = await r.json();
+        if (d.ok) setVendedores(d.usuarios.filter(u => u.rol === "vendedor" && u.activo));
+      } catch(_){}
+      setLoading(false);
+    };
+    cargar();
+  }, []);
+
+  return (
+    <div className="view-anim">
+      <div className="vh">
+        <div><div className="vh-title">Vendedores</div><div className="vh-sub">Equipo comercial y rendimiento</div></div>
+      </div>
+
+      {loading ? <Cargando texto="Cargando vendedores..." /> : vendedores.length === 0 ? (
+        <div className="card" style={{padding:"2.5rem",textAlign:"center",color:"var(--muted)"}}>
+          <i className="bi bi-person-badge" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.5rem"}} />
+          No hay vendedores activos. Creá usuarios con rol "Vendedor" en Sistema.
+        </div>
+      ) : (
+        <div className="g3">
+          {vendedores.map(v => (
+            <div key={v.id} className="card">
+              <div className="cb">
+                <div style={{display:"flex",alignItems:"center",gap:"0.7rem",marginBottom:"0.8rem"}}>
+                  <Av letra={v.nombre?.[0]} size={40} fontSize="1rem" />
+                  <div>
+                    <div style={{fontWeight:700,fontSize:"0.88rem",color:"var(--text)"}}>{v.nombre}</div>
+                    <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{v.email}</div>
+                  </div>
+                </div>
+
+                {/* Especialidades */}
+                {v.rubros_especialidad && (
+                  <div style={{marginBottom:"0.5rem"}}>
+                    <div style={{fontSize:"0.65rem",fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Rubros</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+                      {(typeof v.rubros_especialidad === "string" ? JSON.parse(v.rubros_especialidad) : v.rubros_especialidad).map((r,i) => (
+                        <span key={i} className="bdg bdg-blue" style={{fontSize:"0.62rem"}}>{r}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Stats */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem",marginTop:"0.5rem",paddingTop:"0.5rem",borderTop:"1px solid var(--border)"}}>
+                  {[["Tasa de cierre",`${v.tasa_cierre||0}%`,"var(--em-d)"],["MRR generado",v.mrr_generado?`$${Number(v.mrr_generado).toLocaleString("es-AR")}`:"—","var(--accent)"]].map(([l,val,color],i)=>(
+                    <div key={i}>
+                      <div style={{fontSize:"0.6rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
+                      <div style={{fontSize:"0.95rem",fontWeight:700,color}}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Último acceso */}
+                <div style={{marginTop:"0.5rem",fontSize:"0.67rem",color:"var(--muted)"}}>
+                  Último acceso: {v.ultimo_acceso ? new Date(v.ultimo_acceso).toLocaleDateString("es-AR") : "Nunca"}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══ SOPORTE ══ */
+const PRIORIDAD_META = {
+  urgente: { cls:"bdg-urgente", label:"Urgente" },
+  alta:    { cls:"bdg-alta",    label:"Alta" },
+  media:   { cls:"bdg-media",   label:"Media" },
+  baja:    { cls:"bdg-baja",    label:"Baja" },
+};
+const ESTADO_TICKET = {
+  nuevo:     { label:"Nuevo",     cls:"bdg-blue" },
+  en_curso:  { label:"En curso",  cls:"bdg-amber" },
+  esperando: { label:"Esperando", cls:"bdg-moon" },
+  resuelto:  { label:"Resuelto",  cls:"bdg-em" },
+  cerrado:   { label:"Cerrado",   cls:"bdg-moon" },
+};
+const TICKET_VACIO = { tenant_id:"", canal:"email", categoria:"otro", prioridad:"media", titulo:"", descripcion:"", asignado_a:"" };
+
+function ViewSoporte({ session }) {
+  const [tab, setTab] = useState("tickets");
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [ticketActivo, setTicketActivo] = useState(null);
+  const [mensajes, setMensajes] = useState([]);
+  const [loadingMsg, setLoadingMsg] = useState(false);
+  const [texto, setTexto] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState(TICKET_VACIO);
+  const [saving, setSaving] = useState(false);
+  const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroPrioridad, setFiltroPrioridad] = useState("");
+  const [tenants, setTenants] = useState([]);
+  const [agentes, setAgentes] = useState([]);
+  const msgsRef = useRef(null);
+
+  const cargar = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filtroEstado) params.append("estado", filtroEstado);
+      if (filtroPrioridad) params.append("prioridad", filtroPrioridad);
+      const r = await fetch(`/api/soporte/tickets?${params}`);
+      const d = await r.json();
+      if (Array.isArray(d)) setTickets(d);
+    } catch(_){}
+    setLoading(false);
+  };
+
+  const cargarMensajes = async (ticket) => {
+    setTicketActivo(ticket);
+    setTab("detalle");
+    setLoadingMsg(true);
+    try {
+      const r = await fetch(`/api/soporte/mensajes?ticket_id=${ticket.id}`);
+      const d = await r.json();
+      if (Array.isArray(d)) setMensajes(d);
+    } catch(_){}
+    setLoadingMsg(false);
+    setTimeout(() => msgsRef.current?.scrollTo(0, 99999), 100);
+  };
+
+  useEffect(() => {
+    cargar();
+    // cargar tenants y agentes para el modal
+    fetch("/api/tenants").then(r=>r.json()).then(d=>{ if(d.ok) setTenants(d.tenants); }).catch(()=>{});
+    fetch("/api/usuarios").then(r=>r.json()).then(d=>{ if(d.ok) setAgentes(d.usuarios.filter(u=>u.activo&&["superadmin","admin"].includes(u.rol))); }).catch(()=>{});
+  }, [filtroEstado, filtroPrioridad]);
+
+  const crearTicket = async () => {
+    if (!form.titulo) return;
+    setSaving(true);
+    try {
+      const r = await fetch("/api/soporte/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, tenant_id: form.tenant_id || null, asignado_a: form.asignado_a || null }),
+      });
+      const d = await r.json();
+      if (d.ok) { setModal(false); setForm(TICKET_VACIO); await cargar(); }
+    } catch(_){}
+    setSaving(false);
+  };
+
+  const cambiarEstado = async (id, estado) => {
+    try { await fetch("/api/soporte/tickets",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,estado})}); await cargar(); } catch(_){}
+  };
+
+  const cambiarAsignado = async (id, asignado_a) => {
+    try { await fetch("/api/soporte/tickets",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,asignado_a})}); await cargar(); if(ticketActivo?.id===id) setTicketActivo(p=>({...p,asignado_a})); } catch(_){}
+  };
+
+  const enviarMensaje = async () => {
+    if (!texto.trim() || !ticketActivo) return;
+    setEnviando(true);
+    try {
+      await fetch("/api/soporte/mensajes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticket_id: ticketActivo.id, direccion: "saliente", contenido: texto }),
+      });
+      setTexto("");
+      await cargarMensajes(ticketActivo);
+    } catch(_){}
+    setEnviando(false);
+  };
+
+  const f = (v) => setForm(p=>({...p,...v}));
+
+  // KPIs
+  const urgentes  = tickets.filter(t=>t.prioridad==="urgente"&&!["resuelto","cerrado"].includes(t.estado)).length;
+  const nuevos    = tickets.filter(t=>t.estado==="nuevo").length;
+  const enCurso   = tickets.filter(t=>t.estado==="en_curso").length;
+  const resueltos = tickets.filter(t=>t.estado==="resuelto").length;
+
+  return (
+    <div className="view-anim">
+      <div className="vh">
+        <div><div className="vh-title">Soporte</div><div className="vh-sub">Tickets de atención a clientes</div></div>
+        <div style={{display:"flex",gap:"0.5rem"}}>
+          <button className="btn btn-out btn-sm" onClick={cargar}><i className="bi bi-arrow-clockwise" /></button>
+          <button className="btn btn-em btn-sm" onClick={()=>setModal(true)}><i className="bi bi-plus-lg" /> Nuevo ticket</button>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="g4" style={{marginBottom:"0.9rem"}}>
+        {[["bi-exclamation-circle","var(--red-bg)","var(--red)",urgentes,"Urgentes"],["bi-inbox","var(--blue-bg)","var(--blue)",nuevos,"Nuevos"],["bi-hourglass-split","var(--amber-bg)","var(--amber)",enCurso,"En curso"],["bi-check-circle","var(--em-pale)","var(--em-d)",resueltos,"Resueltos"]].map(([ico,bg,color,val,lbl],i)=>(
+          <div key={i} className="kpi"><div className="kpi-ico" style={{background:bg}}><i className={`bi ${ico}`} style={{color}} /></div><div className="kpi-val">{val}</div><div className="kpi-lbl">{lbl}</div></div>
+        ))}
+      </div>
+
+      <Tabs tabs={[["tickets","Tickets","bi-headset"],["detalle","Conversación","bi-chat-dots"]]} active={tab} onChange={setTab} />
+
+      {tab==="tickets" && (
+        <>
+          {/* Filtros */}
+          <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.7rem",flexWrap:"wrap",alignItems:"center"}}>
+            <div style={{display:"flex",gap:3}}>
+              {["","nuevo","en_curso","esperando","resuelto","cerrado"].map(e=>(
+                <button key={e} onClick={()=>setFiltroEstado(e)} className="btn btn-xs"
+                  style={{background:filtroEstado===e?"var(--pr)":"var(--bg)",color:filtroEstado===e?"#fff":"var(--sub)",border:`1px solid ${filtroEstado===e?"var(--pr)":"var(--border)"}`}}>
+                  {e===""?"Todos":ESTADO_TICKET[e]?.label}
+                </button>
+              ))}
+            </div>
+            <div style={{marginLeft:"auto",display:"flex",gap:3}}>
+              {["","urgente","alta","media","baja"].map(p=>(
+                <button key={p} onClick={()=>setFiltroPrioridad(p)} className="btn btn-xs"
+                  style={{background:filtroPrioridad===p?"var(--pr)":"var(--bg)",color:filtroPrioridad===p?"#fff":"var(--sub)",border:`1px solid ${filtroPrioridad===p?"var(--pr)":"var(--border)"}`}}>
+                  {p===""?"Prioridad":PRIORIDAD_META[p]?.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="card">
-            {loading ? (
-              <div style={{padding:"2.5rem",textAlign:"center",color:"var(--muted)"}}>
-                <i className="bi bi-hourglass-split" style={{fontSize:"1.4rem",display:"block",marginBottom:8}} />
-                Cargando leads...
-              </div>
-            ) : (
+            {loading ? <Cargando texto="Cargando tickets..." /> : (
               <table className="tbl">
-                <thead>
-                  <tr>
-                    <th>Contacto</th>
-                    <th>Rubro</th>
-                    <th>Plan</th>
-                    <th>Fuente</th>
-                    <th>Estado</th>
-                    <th>MRR Est.</th>
-                    <th>Vendedor</th>
-                    <th></th>
-                  </tr>
-                </thead>
+                <thead><tr><th>Cliente</th><th>Título</th><th>Canal</th><th>Categoría</th><th>Prioridad</th><th>Estado</th><th>Asignado a</th><th>Creado</th><th></th></tr></thead>
                 <tbody>
-                  {leads.length === 0 ? (
-                    <tr><td colSpan={8} style={{textAlign:"center",padding:"2.5rem",color:"var(--muted)"}}>
-                      <i className="bi bi-graph-up-arrow" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.5rem"}} />
-                      No hay leads todavía
-                    </td></tr>
-                  ) : leads.map(l => (
-                    <tr key={l.id} onClick={() => abrirLead(l)} style={{cursor:"pointer"}}>
-                      <td>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <div style={{width:26,height:26,borderRadius:"50%",background:"var(--pr-pale)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.68rem",fontWeight:700,color:"var(--pr)",flexShrink:0}}>
-                            {l.nombre?.[0]?.toUpperCase()}
-                          </div>
-                          <div>
-                            <div style={{fontWeight:600,fontSize:"0.8rem"}}>{l.nombre}</div>
-                            {l.empresa && <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{l.empresa}</div>}
-                          </div>
-                        </div>
+                  {tickets.length===0 ? <tr><td colSpan={9} style={{textAlign:"center",padding:"2.5rem",color:"var(--muted)"}}><i className="bi bi-headset" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.5rem"}} />No hay tickets</td></tr>
+                  : tickets.map(t=>(
+                    <tr key={t.id} onClick={()=>cargarMensajes(t)}>
+                      <td style={{fontSize:"0.75rem",fontWeight:600}}>{t.tenant_nombre||<span style={{color:"var(--muted)"}}>—</span>}</td>
+                      <td style={{fontSize:"0.78rem",maxWidth:220}}>
+                        <div style={{fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.titulo}</div>
                       </td>
-                      <td style={{fontSize:"0.75rem",color:"var(--text2)"}}>{l.rubro_interes || "—"}</td>
-                      <td>{l.plan_interes ? <span className="bdg bdg-blue">{l.plan_interes}</span> : <span style={{color:"var(--muted)",fontSize:"0.75rem"}}>—</span>}</td>
-                      <td style={{fontSize:"0.75rem",color:"var(--muted)"}}>{l.fuente}</td>
-                      <td>
-                        <select
-                          value={l.estado}
-                          onClick={e => e.stopPropagation()}
-                          onChange={e => cambiarEstado(l.id, e.target.value)}
-                          style={{padding:"0.22rem 0.5rem",borderRadius:"var(--r-sm)",border:"1px solid var(--border2)",fontSize:"0.72rem",fontFamily:"inherit",background:"var(--white)",cursor:"pointer"}}
-                        >
-                          {Object.entries(ESTADO_LEAD).map(([k,v]) => (
-                            <option key={k} value={k}>{v.label}</option>
-                          ))}
+                      <td><span style={{display:"flex",alignItems:"center",gap:4,fontSize:"0.72rem"}}><i className={`bi ${CANAL_ICON[t.canal]||"bi-chat"}`} style={{color:CANAL_COLOR[t.canal]}} />{t.canal}</span></td>
+                      <td style={{fontSize:"0.72rem",color:"var(--text2)"}}>{t.categoria}</td>
+                      <td><span className={`bdg ${PRIORIDAD_META[t.prioridad]?.cls}`}>{PRIORIDAD_META[t.prioridad]?.label}</span></td>
+                      <td onClick={e=>e.stopPropagation()}>
+                        <select value={t.estado} onChange={e=>cambiarEstado(t.id,e.target.value)}
+                          style={{padding:"0.22rem 0.5rem",borderRadius:"var(--r-sm)",border:"1px solid var(--border2)",fontSize:"0.72rem",fontFamily:"inherit",background:"var(--white)",cursor:"pointer"}}>
+                          {Object.entries(ESTADO_TICKET).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                         </select>
                       </td>
-                      <td style={{fontSize:"0.78rem",fontWeight:600,color:"var(--text)"}}>
-                        {l.valor_mrr_estimado ? `$${Number(l.valor_mrr_estimado).toLocaleString("es-AR")}` : "—"}
+                      <td onClick={e=>e.stopPropagation()}>
+                        <select value={t.asignado_a||""} onChange={e=>cambiarAsignado(t.id,e.target.value||null)}
+                          style={{padding:"0.22rem 0.5rem",borderRadius:"var(--r-sm)",border:"1px solid var(--border2)",fontSize:"0.72rem",fontFamily:"inherit",background:"var(--white)",cursor:"pointer",maxWidth:120}}>
+                          <option value="">Sin asignar</option>
+                          {agentes.map(a=><option key={a.id} value={a.id}>{a.nombre}</option>)}
+                        </select>
                       </td>
-                      <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>{l.vendedor_nombre || "Sin asignar"}</td>
-                      <td onClick={e => e.stopPropagation()}>
-                        <div style={{display:"flex",gap:4}}>
-                          <button className="btn btn-xs btn-out" onClick={() => abrirEditar(l)}><i className="bi bi-pencil" /></button>
-                          <button className="btn btn-xs" onClick={() => eliminar(l)}
-                            style={{background:"var(--red-bg)",color:"var(--red)",border:"1px solid #f5c6c6"}}>
-                            <i className="bi bi-trash3" />
-                          </button>
-                        </div>
+                      <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>{new Date(t.creado_en).toLocaleDateString("es-AR")}</td>
+                      <td onClick={e=>e.stopPropagation()}>
+                        <button className="btn btn-xs btn-out" onClick={()=>cargarMensajes(t)}><i className="bi bi-chat-dots" /></button>
                       </td>
                     </tr>
                   ))}
@@ -1910,201 +1307,395 @@ function ViewVentas() {
         </>
       )}
 
-      {/* TAB DETALLE */}
-      {tab === "detalle" && (
-        <>
-          {!leadActivo ? (
-            <div className="card" style={{padding:"2.5rem",textAlign:"center",color:"var(--muted)"}}>
-              <i className="bi bi-hand-index" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.5rem"}} />
-              Seleccioná un lead de la pestaña Leads para ver su detalle
-            </div>
-          ) : (
-            <div className="g2">
-              {/* Info del lead */}
-              <div className="card">
-                <div className="ch">
-                  <i className="bi bi-person-circle" style={{color:"var(--pr)"}} />
-                  <span className="ch-title">{leadActivo.nombre}</span>
-                  <span className={`bdg ${ESTADO_LEAD[leadActivo.estado]?.cls} ch-act`}>{ESTADO_LEAD[leadActivo.estado]?.label}</span>
+      {tab==="detalle" && (
+        !ticketActivo ? (
+          <div className="card" style={{padding:"2.5rem",textAlign:"center",color:"var(--muted)"}}>
+            <i className="bi bi-chat-dots" style={{fontSize:"1.5rem",display:"block",marginBottom:"0.5rem"}} />
+            Seleccioná un ticket de la pestaña Tickets para ver la conversación
+          </div>
+        ) : (
+          <div style={{display:"flex",gap:"0.9rem",height:"calc(100vh - 280px)"}}>
+            {/* Info ticket */}
+            <div className="card" style={{width:260,flexShrink:0,overflow:"auto"}}>
+              <div className="ch"><i className="bi bi-ticket-detailed" style={{color:"var(--pr)"}} /><span className="ch-title">#{ticketActivo.id}</span></div>
+              <div className="cb" style={{display:"flex",flexDirection:"column",gap:"0.6rem"}}>
+                <div><div style={{fontSize:"0.65rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Título</div><div style={{fontSize:"0.8rem",fontWeight:600}}>{ticketActivo.titulo}</div></div>
+                {[["Cliente",ticketActivo.tenant_nombre],["Canal",ticketActivo.canal],["Categoría",ticketActivo.categoria]].map(([l,v])=>(
+                  <div key={l}><div style={{fontSize:"0.65rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{l}</div><div style={{fontSize:"0.78rem"}}>{v||"—"}</div></div>
+                ))}
+                <div><div style={{fontSize:"0.65rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Prioridad</div><span className={`bdg ${PRIORIDAD_META[ticketActivo.prioridad]?.cls}`}>{PRIORIDAD_META[ticketActivo.prioridad]?.label}</span></div>
+                <div><div style={{fontSize:"0.65rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Estado</div>
+                  <select value={ticketActivo.estado} onChange={e=>{cambiarEstado(ticketActivo.id,e.target.value);setTicketActivo(p=>({...p,estado:e.target.value}));}}
+                    style={{width:"100%",padding:"0.35rem 0.5rem",borderRadius:"var(--r-sm)",border:"1px solid var(--border2)",fontSize:"0.78rem",fontFamily:"inherit",background:"var(--white)"}}>
+                    {Object.entries(ESTADO_TICKET).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                  </select>
                 </div>
-                <div className="cb" style={{display:"flex",flexDirection:"column",gap:"0.5rem"}}>
-                  {[
-                    ["Empresa", leadActivo.empresa],
-                    ["Email", leadActivo.email],
-                    ["Teléfono", leadActivo.telefono],
-                    ["Rubro", leadActivo.rubro_interes],
-                    ["Plan interés", leadActivo.plan_interes],
-                    ["Fuente", leadActivo.fuente],
-                    ["MRR estimado", leadActivo.valor_mrr_estimado ? `$${Number(leadActivo.valor_mrr_estimado).toLocaleString("es-AR")}` : null],
-                    ["Vendedor", leadActivo.vendedor_nombre],
-                  ].map(([k,v]) => v ? (
-                    <div key={k} style={{display:"flex",gap:"0.5rem",fontSize:"0.8rem"}}>
-                      <span style={{color:"var(--muted)",width:90,flexShrink:0}}>{k}</span>
-                      <span style={{color:"var(--text)",fontWeight:500}}>{v}</span>
-                    </div>
-                  ) : null)}
-                  {leadActivo.notas && (
-                    <div style={{marginTop:"0.5rem",padding:"0.6rem",background:"var(--bg)",borderRadius:"var(--r-sm)",fontSize:"0.78rem",color:"var(--text2)"}}>
-                      {leadActivo.notas}
-                    </div>
-                  )}
+                <div><div style={{fontSize:"0.65rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Agente</div>
+                  <select value={ticketActivo.asignado_a||""} onChange={e=>cambiarAsignado(ticketActivo.id,e.target.value||null)}
+                    style={{width:"100%",padding:"0.35rem 0.5rem",borderRadius:"var(--r-sm)",border:"1px solid var(--border2)",fontSize:"0.78rem",fontFamily:"inherit",background:"var(--white)"}}>
+                    <option value="">Sin asignar</option>
+                    {agentes.map(a=><option key={a.id} value={a.id}>{a.nombre}</option>)}
+                  </select>
                 </div>
+                {ticketActivo.descripcion && <div style={{padding:"0.5rem",background:"var(--bg)",borderRadius:"var(--r-sm)",fontSize:"0.75rem",color:"var(--text2)"}}>{ticketActivo.descripcion}</div>}
               </div>
+            </div>
 
-              {/* Actividades */}
-              <div className="card">
-                <div className="ch">
-                  <i className="bi bi-journal-text" style={{color:"var(--accent)"}} />
-                  <span className="ch-title">Actividades</span>
-                  <div className="ch-act">
-                    <button className="btn btn-em btn-xs" onClick={() => setModalAct(true)}>
-                      <i className="bi bi-plus-lg" /> Registrar
-                    </button>
+            {/* Chat del ticket */}
+            <div className="card" style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+              <div className="ch"><i className="bi bi-chat-dots" style={{color:"var(--pr)"}} /><span className="ch-title">Conversación</span><div className="ch-act"><button className="btn btn-xs btn-out" onClick={()=>setTab("tickets")}><i className="bi bi-arrow-left" /> Volver</button></div></div>
+              <div className="chat-msgs" ref={msgsRef} style={{flex:1}}>
+                {loadingMsg ? <div style={{textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Cargando...</div>
+                : mensajes.length===0 ? <div style={{textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Sin mensajes todavía</div>
+                : mensajes.map(m=>(
+                  <div key={m.id}>
+                    <div className={`msg ${m.direccion==="saliente"?"msg-out":"msg-in"}`}>
+                      {m.contenido}
+                      <div className="msg-t">
+                        {new Date(m.creado_en).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                        {m.direccion==="saliente" && <span style={{marginLeft:4}}>{m.enviado_por_nombre||"Vos"}</span>}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="cb" style={{padding:0}}>
-                  {loadingAct ? (
-                    <div style={{padding:"1.5rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Cargando...</div>
-                  ) : actividades.length === 0 ? (
-                    <div style={{padding:"1.5rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>
-                      Sin actividades registradas
-                    </div>
-                  ) : actividades.map((a,i) => (
-                    <div key={a.id} style={{display:"flex",gap:"0.65rem",padding:"0.7rem 1rem",borderBottom: i<actividades.length-1 ? "1px solid var(--border)" : "none"}}>
-                      <div style={{width:28,height:28,borderRadius:7,background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                        <i className={`bi ${TIPO_ACTIVIDAD[a.tipo]?.icon || "bi-dot"}`} style={{color:TIPO_ACTIVIDAD[a.tipo]?.color,fontSize:"0.82rem"}} />
-                      </div>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:"0.78rem",color:"var(--text)",lineHeight:1.4}}>{a.descripcion || "—"}</div>
-                        {a.proxima_accion && (
-                          <div style={{fontSize:"0.67rem",color:"var(--accent)",marginTop:2}}>
-                            → {a.proxima_accion} {a.fecha_proxima_accion ? `(${new Date(a.fecha_proxima_accion).toLocaleDateString("es-AR")})` : ""}
-                          </div>
-                        )}
-                        <div style={{fontSize:"0.65rem",color:"var(--muted)",marginTop:2}}>
-                          {a.usuario_nombre} · {new Date(a.fecha_actividad).toLocaleDateString("es-AR")}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                ))}
               </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Modal nuevo/editar lead */}
-      {modal && (
-        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"1rem"}}
-          onClick={e => e.target===e.currentTarget && setModal(false)}>
-          <div style={{background:"#fff",borderRadius:"var(--r)",width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(15,23,42,.2)",overflow:"hidden"}}>
-            <div style={{padding:"1rem 1.2rem",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--bg)"}}>
-              <div style={{fontWeight:700,fontSize:"0.9rem"}}>{editando ? "Editar lead" : "Nuevo lead"}</div>
-              <button onClick={() => setModal(false)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:"1rem"}}><i className="bi bi-x-lg" /></button>
-            </div>
-            <div style={{padding:"1.2rem",display:"flex",flexDirection:"column",gap:"0.7rem",maxHeight:"70vh",overflowY:"auto"}}>
-              <div className="fi-row">
-                <div className="fg"><label className="fl">Nombre *</label><input className="fi" value={form.nombre} onChange={e=>f({nombre:e.target.value})} placeholder="Juan García" /></div>
-                <div className="fg"><label className="fl">Empresa</label><input className="fi" value={form.empresa} onChange={e=>f({empresa:e.target.value})} placeholder="Hotel Aurora" /></div>
+              <div className="chat-input-bar">
+                <input className="chat-inp" placeholder="Escribir respuesta…" value={texto} onChange={e=>setTexto(e.target.value)}
+                  onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); enviarMensaje(); } }} />
+                <button className="btn btn-em btn-sm" onClick={enviarMensaje} disabled={enviando||!texto.trim()}><i className="bi bi-send" /></button>
               </div>
-              <div className="fi-row">
-                <div className="fg"><label className="fl">Email</label><input className="fi" value={form.email} onChange={e=>f({email:e.target.value})} placeholder="juan@empresa.com" /></div>
-                <div className="fg"><label className="fl">Teléfono</label><input className="fi" value={form.telefono} onChange={e=>f({telefono:e.target.value})} placeholder="+54 11..." /></div>
-              </div>
-              <div className="fi-row">
-                <div className="fg">
-                  <label className="fl">Rubro de interés</label>
-                  <select className="fi" value={form.rubro_interes} onChange={e=>f({rubro_interes:e.target.value})}>
-                    <option value="">Seleccionar…</option>
-                    {RUBROS_VENTA.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div className="fg">
-                  <label className="fl">Plan de interés</label>
-                  <select className="fi" value={form.plan_interes} onChange={e=>f({plan_interes:e.target.value})}>
-                    <option value="">Sin definir</option>
-                    <option value="starter">Starter</option>
-                    <option value="pro">Pro</option>
-                    <option value="plan_ia">Plan IA</option>
-                    <option value="enterprise">Enterprise</option>
-                  </select>
-                </div>
-              </div>
-              <div className="fi-row">
-                <div className="fg">
-                  <label className="fl">Fuente</label>
-                  <select className="fi" value={form.fuente} onChange={e=>f({fuente:e.target.value})}>
-                    <option value="web">Web</option>
-                    <option value="referido">Referido</option>
-                    <option value="ads">Ads</option>
-                    <option value="evento">Evento</option>
-                    <option value="cold">Cold outreach</option>
-                  </select>
-                </div>
-                <div className="fg">
-                  <label className="fl">MRR estimado (ARS)</label>
-                  <input className="fi" type="number" value={form.valor_mrr_estimado} onChange={e=>f({valor_mrr_estimado:e.target.value})} placeholder="0" />
-                </div>
-              </div>
-              <div className="fg">
-                <label className="fl">Notas</label>
-                <textarea className="fi" rows={3} value={form.notas} onChange={e=>f({notas:e.target.value})} placeholder="Observaciones sobre el lead…" style={{resize:"vertical"}} />
-              </div>
-              {error && <div style={{background:"var(--red-bg)",border:"1px solid #f5c6c6",borderRadius:"var(--r-sm)",padding:"0.5rem 0.75rem",fontSize:"0.78rem",color:"var(--red)"}}>{error}</div>}
-            </div>
-            <div style={{padding:"0.9rem 1.2rem",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"0.5rem",background:"var(--bg)"}}>
-              <button className="btn btn-out btn-sm" onClick={() => setModal(false)}>Cancelar</button>
-              <button className="btn btn-em btn-sm" onClick={guardar} disabled={saving}>
-                {saving ? "Guardando…" : editando ? "Guardar cambios" : "Crear lead"}
-              </button>
             </div>
           </div>
-        </div>
+        )
       )}
 
-      {/* Modal nueva actividad */}
-      {modalAct && (
-        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"1rem"}}
-          onClick={e => e.target===e.currentTarget && setModalAct(false)}>
-          <div style={{background:"#fff",borderRadius:"var(--r)",width:"100%",maxWidth:420,boxShadow:"0 20px 60px rgba(15,23,42,.2)",overflow:"hidden"}}>
-            <div style={{padding:"1rem 1.2rem",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--bg)"}}>
-              <div style={{fontWeight:700,fontSize:"0.9rem"}}>Registrar actividad</div>
-              <button onClick={() => setModalAct(false)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:"1rem"}}><i className="bi bi-x-lg" /></button>
-            </div>
-            <div style={{padding:"1.2rem",display:"flex",flexDirection:"column",gap:"0.7rem"}}>
-              <div className="fg">
-                <label className="fl">Tipo</label>
-                <select className="fi" value={formAct.tipo} onChange={e=>fa({tipo:e.target.value})}>
-                  <option value="nota">Nota</option>
-                  <option value="llamada">Llamada</option>
-                  <option value="email">Email</option>
-                  <option value="whatsapp">WhatsApp</option>
-                  <option value="reunion">Reunión</option>
+      {/* Modal nuevo ticket */}
+      {modal && (
+        <Modal title="Nuevo ticket" onClose={()=>setModal(false)}>
+          <div style={{padding:"1.2rem",display:"flex",flexDirection:"column",gap:"0.7rem",maxHeight:"70vh",overflowY:"auto"}}>
+            <div className="fg"><label className="fl">Título *</label><input className="fi" value={form.titulo} onChange={e=>f({titulo:e.target.value})} placeholder="Descripción breve del problema" /></div>
+            <div className="fi-row">
+              <div className="fg"><label className="fl">Cliente (tenant)</label>
+                <select className="fi" value={form.tenant_id} onChange={e=>f({tenant_id:e.target.value})}>
+                  <option value="">Sin asignar</option>
+                  {tenants.map(t=><option key={t.id} value={t.id}>{t.nombre}</option>)}
                 </select>
               </div>
-              <div className="fg">
-                <label className="fl">Descripción</label>
-                <textarea className="fi" rows={3} value={formAct.descripcion} onChange={e=>fa({descripcion:e.target.value})} placeholder="¿Qué ocurrió?" style={{resize:"vertical"}} />
-              </div>
-              <div className="fg">
-                <label className="fl">Próxima acción</label>
-                <input className="fi" value={formAct.proxima_accion} onChange={e=>fa({proxima_accion:e.target.value})} placeholder="Enviar propuesta, llamar el lunes…" />
-              </div>
-              <div className="fg">
-                <label className="fl">Fecha próxima acción</label>
-                <input className="fi" type="date" value={formAct.fecha_proxima_accion} onChange={e=>fa({fecha_proxima_accion:e.target.value})} />
+              <div className="fg"><label className="fl">Canal</label>
+                <select className="fi" value={form.canal} onChange={e=>f({canal:e.target.value})}>
+                  <option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="web">Web</option><option value="chat">Chat</option>
+                </select>
               </div>
             </div>
-            <div style={{padding:"0.9rem 1.2rem",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"0.5rem",background:"var(--bg)"}}>
-              <button className="btn btn-out btn-sm" onClick={() => setModalAct(false)}>Cancelar</button>
-              <button className="btn btn-em btn-sm" onClick={guardarActividad} disabled={saving}>
-                {saving ? "Guardando…" : "Registrar"}
-              </button>
+            <div className="fi-row">
+              <div className="fg"><label className="fl">Categoría</label>
+                <select className="fi" value={form.categoria} onChange={e=>f({categoria:e.target.value})}>
+                  <option value="tecnico">Técnico</option><option value="facturacion">Facturación</option><option value="capacitacion">Capacitación</option><option value="otro">Otro</option>
+                </select>
+              </div>
+              <div className="fg"><label className="fl">Prioridad</label>
+                <select className="fi" value={form.prioridad} onChange={e=>f({prioridad:e.target.value})}>
+                  <option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option><option value="urgente">Urgente</option>
+                </select>
+              </div>
             </div>
+            <div className="fg"><label className="fl">Agente asignado</label>
+              <select className="fi" value={form.asignado_a} onChange={e=>f({asignado_a:e.target.value})}>
+                <option value="">Sin asignar</option>
+                {agentes.map(a=><option key={a.id} value={a.id}>{a.nombre}</option>)}
+              </select>
+            </div>
+            <div className="fg"><label className="fl">Descripción</label><textarea className="fi" rows={3} value={form.descripcion} onChange={e=>f({descripcion:e.target.value})} style={{resize:"vertical"}} /></div>
+          </div>
+          <ModalFooter onCancel={()=>setModal(false)} onConfirm={crearTicket} saving={saving} labelConfirm="Crear ticket" />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ══ VISTAS PLACEHOLDER ══ */
+
+function ViewModulos() {
+  const modulos = [["bi-grid-1x2","Dashboard IA","Estadísticas e inteligencia analítica"],["bi-people","CRM / Clientes","Gestión de clientes y leads"],["bi-whatsapp","WhatsApp Bot","Bot con IA y memoria de contexto"],["bi-calendar-check","Agenda / Turnos","Turnos inteligentes con predicción"],["bi-receipt","Facturación","Facturas y presupuestos con IA"],["bi-bell","Notificaciones","Comunicaciones automatizadas"],["bi-bar-chart-line","Estadísticas","Análisis en lenguaje natural"],["bi-geo-alt","Mapas","Geolocalización y seguimiento"],["bi-building","Reservas / Hotel","Gestión de habitaciones y reservas"],["bi-heart-pulse","Historia Clínica","Pacientes y turnos médicos"],["bi-house","Propiedades","Gestión inmobiliaria con mapa"],["bi-truck","Distribución","Rutas y logística inteligente"]];
+  return (
+    <div className="view-anim">
+      <div className="vh"><div><div className="vh-title">Módulos</div><div className="vh-sub">Catálogo del sistema</div></div></div>
+      <div className="g3">{modulos.map((m,i)=><div key={i} className="card"><div className="cb" style={{display:"flex",alignItems:"center",gap:"0.75rem"}}><div className="mod-ico" style={{background:"var(--pr-pale)"}}><i className={`bi ${m[0]}`} style={{color:"var(--pr)"}} /></div><div style={{flex:1}}><div className="mod-name">{m[1]}</div><div className="mod-desc">{m[2]}</div></div><div className="tog" onClick={e=>e.currentTarget.classList.toggle("on")}><div className="tog-k" /></div></div></div>)}</div>
+    </div>
+  );
+}
+
+function ViewPlanes() {
+  const planes = [{name:"Starter",price:"Gratis",color:"var(--sub)",features:["Módulos básicos limitados","1 usuario","Sin WhatsApp","1 sugerencia IA/día"],off:[2,3]},{name:"Pro",price:"$XX.000",color:"var(--em)",features:["Módulos completos","5 usuarios","WhatsApp activo","Skills IA Nivel 2"],off:[]},{name:"Plan IA",price:"$XX.000",color:"var(--accent)",features:["Todo Pro incluido","Skills IA completas","Asistente IA avanzado","Sugerencias reactivas"],off:[]},{name:"Enterprise",price:"A consultar",color:"var(--pr)",features:["Multi-cuenta","White label","Módulos custom","Consultoría incluida"],off:[]}];
+  return (
+    <div className="view-anim">
+      <div className="vh"><div><div className="vh-title">Planes</div><div className="vh-sub">Gestión de suscripciones</div></div><button className="btn btn-em btn-sm"><i className="bi bi-plus-lg" /> Nuevo plan</button></div>
+      <div className="g4">{planes.map((p,i)=><div key={i} className="plan-card"><div className="plan-hdr"><div className="plan-name" style={{color:p.color}}>{p.name}</div><div className="plan-price">{p.price}<span>/mes</span></div></div>{p.features.map((f,j)=><div key={j} className={`plan-feature${p.off.includes(j)?" off":""}`}><i className={`bi ${p.off.includes(j)?"bi-x":"bi-check2"}`} style={{color:p.off.includes(j)?"var(--border2)":p.color}} />{f}</div>)}<div className="plan-foot"><button className="btn btn-em btn-sm" style={{width:"100%",background:p.color}}>Gestionar</button></div></div>)}</div>
+    </div>
+  );
+}
+
+function ViewComunicaciones() {
+  return (
+    <div className="comm-wrap view-anim">
+      <div className="conv-list">
+        <div className="conv-hdr"><div className="conv-hdr-title">Conversaciones</div></div>
+        <div className="conv-search"><i className="bi bi-search" style={{color:"var(--muted)",fontSize:"0.75rem"}} /><input placeholder="Buscar…" /></div>
+        <div className="conv-items">
+          {[["HA","Hotel Alvear","¿Cuándo se activa el módulo?","10:24"],["SV","Salón Versailles","Necesito ajustar el bot","09:15"],["DR","Dra. López","Consulta sobre facturación","ayer"]].map(([av,name,prev,time],i)=>(
+            <div key={i} className={`conv-item${i===0?" on":""}`}><div className="conv-av">{av}</div><div style={{flex:1,minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div className="conv-name">{name}</div><div className="conv-time">{time}</div></div><div className="conv-prev">{prev}</div></div></div>
+          ))}
+        </div>
+      </div>
+      <div className="chat-panel">
+        <div className="chat-hdr"><div className="conv-av">HA</div><div><div style={{fontWeight:600,fontSize:"0.82rem"}}>Hotel Alvear</div><div style={{fontSize:"0.67rem",color:"var(--muted)"}}>hotel · Plan Pro</div></div></div>
+        <div className="chat-msgs"><div className="msg msg-in">Hola, quería saber cuándo se activa el módulo de reservas.<div className="msg-t">10:22</div></div><div className="msg msg-out">¡Hola! El módulo ya está habilitado. Podés acceder desde tu portal en la sección Reservas.<div className="msg-t">10:24</div></div></div>
+        <div className="chat-input-bar"><input className="chat-inp" placeholder="Escribir mensaje…" /><button className="btn btn-em btn-sm"><i className="bi bi-send" /></button></div>
+      </div>
+    </div>
+  );
+}
+
+function ViewSeguimiento() {
+  const tareas = [["Contactar a Inmobiliaria Palermo — sin actividad 12 días","Vence hoy · Alta prioridad"],["Revisar configuración WhatsApp — Salón Versailles","Vence mañana"],["Enviar propuesta Plan IA a Gestor Seguros BA","Esta semana"],["Onboarding Spa Zen Recoleta — cliente nuevo","Esta semana"]];
+  return (
+    <div className="view-anim">
+      <div className="vh"><div><div className="vh-title">Seguimiento</div><div className="vh-sub">Tareas y recordatorios</div></div><button className="btn btn-em btn-sm"><i className="bi bi-plus-lg" /> Nueva tarea</button></div>
+      <div className="card"><div className="cb">{tareas.map((t,i)=><div key={i} className="nota"><div style={{width:15,height:15,borderRadius:4,border:"1.5px solid var(--border2)",flexShrink:0,cursor:"pointer",marginTop:1}} /><div style={{flex:1}}><div className="nota-txt">{t[0]}</div><div className="nota-meta">{t[1]}</div></div></div>)}</div></div>
+    </div>
+  );
+}
+
+function ViewAlertas() {
+  return (
+    <div className="view-anim">
+      <div className="vh"><div><div className="vh-title">Alertas IA</div><div className="vh-sub">Detecciones automáticas</div></div></div>
+      <div className="alert-row red"><i className="bi bi-exclamation-circle" style={{color:"var(--red)",fontSize:"0.85rem",flexShrink:0,marginTop:"0.1rem"}} /><div style={{fontSize:"0.77rem",color:"var(--text)",lineHeight:1.4,flex:1}}><strong>Inmobiliaria Palermo</strong> — Sin actividad hace 12 días. Riesgo de churn alto.</div><button className="btn btn-xs btn-out" style={{marginLeft:"auto",flexShrink:0}}>Acción</button></div>
+      <div className="alert-row warn"><i className="bi bi-exclamation-triangle" style={{color:"var(--amber)",fontSize:"0.85rem",flexShrink:0,marginTop:"0.1rem"}} /><div style={{fontSize:"0.77rem",color:"var(--text)",lineHeight:1.4,flex:1}}><strong>Gestor Seguros BA</strong> — Baja frecuencia de uso. Considerar reactivación.</div><button className="btn btn-xs btn-out" style={{marginLeft:"auto",flexShrink:0}}>Acción</button></div>
+      <div className="alert-row em"><i className="bi bi-check-circle" style={{color:"var(--em)",fontSize:"0.85rem",flexShrink:0,marginTop:"0.1rem"}} /><div style={{fontSize:"0.77rem",color:"var(--text)",lineHeight:1.4,flex:1}}><strong>Hotel Alvear</strong> — Activó módulo Reservas. Engagement en aumento.</div></div>
+    </div>
+  );
+}
+
+function ViewIntegraciones() {
+  const ints = [["bi-whatsapp","#E8F7EE","#1A7A3A","Evolution API","WhatsApp Bot","Conectado"],["bi-robot","var(--accent-pale)","var(--accent)","Claude API","IA principal","Conectado"],["bi-diagram-3","var(--blue-bg)","var(--blue)","n8n","Automatizaciones","Conectado"],["bi-credit-card","var(--em-pale)","var(--em-d)","MercadoPago","Pagos ARS","Pendiente"],["bi-geo-alt","var(--pine-bg)","var(--pine-d)","Google Maps","Mapas y rutas","Pendiente"]];
+  return (
+    <div className="view-anim">
+      <div className="vh"><div><div className="vh-title">Integraciones</div><div className="vh-sub">Conexiones externas</div></div></div>
+      {ints.map((it,i)=><div key={i} className="int-card"><div className="int-ico" style={{background:it[1]}}><i className={`bi ${it[0]}`} style={{color:it[2]}} /></div><div style={{flex:1}}><div style={{fontSize:"0.8rem",fontWeight:600}}>{it[3]}</div><div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{it[4]}</div></div><span className={`bdg ${it[5]==="Conectado"?"bdg-em":"bdg-moon"}`}>{it[5]}</span><button className="btn btn-out btn-sm">{it[5]==="Conectado"?"Configurar":"Conectar"}</button></div>)}
+    </div>
+  );
+}
+
+function ViewAuditoria() {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState("");
+  const cargar = async () => { setLoading(true); try { const r=await fetch("/api/auditoria"); const d=await r.json(); if(d.ok) setLogs(d.logs); } catch(_){} setLoading(false); };
+  useEffect(() => { cargar(); }, []);
+  const formatFecha = (f) => { const d=new Date(f); return d.toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric"})+" · "+d.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"}); };
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const sesionesHoy=logs.filter(l=>new Date(l.creado_en)>=hoy).length;
+  const usuariosUnicos=[...new Set(logs.filter(l=>new Date(l.creado_en)>=hoy).map(l=>l.email))].length;
+  const filtrados=logs.filter(l=>!filtro||l.nombre?.toLowerCase().includes(filtro.toLowerCase())||l.email?.toLowerCase().includes(filtro.toLowerCase())||l.ip?.includes(filtro));
+  return (
+    <div className="view-anim">
+      <div className="vh"><div><div className="vh-title">Auditoría</div><div className="vh-sub">Registro de accesos al sistema</div></div><button className="btn btn-out btn-sm" onClick={cargar}><i className="bi bi-arrow-clockwise" /></button></div>
+      <div className="g3" style={{marginBottom:"0.9rem"}}>
+        {[["bi-box-arrow-in-right","var(--pr-pale)","var(--pr)",sesionesHoy,"Accesos hoy"],["bi-people","var(--em-pale)","var(--em-d)",usuariosUnicos,"Usuarios únicos hoy"],["bi-clock-history","var(--accent-pale)","var(--accent)",logs[0]?.nombre||"—","Último acceso"]].map(([ico,bg,color,val,lbl],i)=>(
+          <div key={i} className="kpi"><div className="kpi-ico" style={{background:bg}}><i className={`bi ${ico}`} style={{color}} /></div><div className="kpi-val" style={{fontSize:i===2?"0.9rem":"1.85rem",marginTop:i===2?4:0}}>{val}</div><div className="kpi-lbl">{lbl}</div></div>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:"0.6rem",marginBottom:"0.7rem"}}>
+        <div className="tb-search" style={{width:"100%",maxWidth:280}}>
+          <i className="bi bi-search" style={{color:"var(--muted)",fontSize:"0.78rem"}} />
+          <input placeholder="Buscar usuario, IP…" value={filtro} onChange={e=>setFiltro(e.target.value)} />
+        </div>
+      </div>
+      <div className="card">
+        {loading ? <Cargando texto="Cargando registros..." /> : (
+          <table className="tbl">
+            <thead><tr><th>Usuario</th><th>Dispositivo</th><th>IP</th><th>Fecha y hora</th></tr></thead>
+            <tbody>
+              {filtrados.length===0 ? <tr><td colSpan={4} style={{textAlign:"center",padding:"2rem",color:"var(--muted)"}}>Sin registros</td></tr>
+              : filtrados.map((l,i)=>(
+                <tr key={i}>
+                  <td><div style={{display:"flex",alignItems:"center",gap:8}}><Av letra={l.nombre?.[0]} size={26} /><div><div style={{fontWeight:600,fontSize:"0.8rem"}}>{l.nombre||"—"}</div><div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{l.email}</div></div></div></td>
+                  <td><div style={{display:"flex",alignItems:"center",gap:6}}><i className={`bi ${l.dispositivo?.includes("Android")||l.dispositivo?.includes("iOS")?"bi-phone":"bi-laptop"}`} style={{color:"var(--muted)",fontSize:"0.82rem"}} /><span style={{fontSize:"0.78rem"}}>{l.dispositivo||"Desconocido"}</span></div></td>
+                  <td style={{fontSize:"0.78rem",color:"var(--muted)",fontFamily:"monospace"}}>{l.ip||"—"}</td>
+                  <td style={{fontSize:"0.75rem",color:"var(--muted)"}}>{formatFecha(l.creado_en)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ViewConfiguracion() {
+  return (
+    <div className="view-anim">
+      <div className="vh"><div><div className="vh-title">Configuración</div><div className="vh-sub">Ajustes del sistema</div></div><button className="btn btn-em btn-sm"><i className="bi bi-floppy" /> Guardar cambios</button></div>
+      <div className="g2">
+        <div>
+          <div className="cfg-section"><div className="cfg-hdr"><i className="bi bi-building" style={{color:"var(--accent)"}} /><span className="cfg-title">Información de la empresa</span></div><div className="cfg-body"><div className="fg"><label className="fl">Nombre</label><input className="fi" defaultValue="Gestión 360 iA" /></div><div className="fg"><label className="fl">Dominio base</label><input className="fi" defaultValue="gestion360ia.com.ar" /></div></div></div>
+          <div className="cfg-section"><div className="cfg-hdr"><i className="bi bi-robot" style={{color:"var(--gold)"}} /><span className="cfg-title">Configuración IA</span></div><div className="cfg-body"><div className="fg"><label className="fl">Modelo principal</label><select className="fi"><option>claude-sonnet-4-6 (Anthropic)</option><option>gpt-4o (OpenAI)</option></select></div><div className="fg"><label className="fl">Límite tokens/día</label><input className="fi" defaultValue="5.000.000" /></div></div></div>
+        </div>
+        <div>
+          <div className="cfg-section"><div className="cfg-hdr"><i className="bi bi-shield-check" style={{color:"var(--accent)"}} /><span className="cfg-title">Seguridad</span></div><div className="cfg-body">{[["JWT + Refresh tokens","Autenticación segura"],["HTTPS forzado","Redirigir HTTP → HTTPS"],["Rate limiting","100 req/min por IP"],["Log de auditoría","Registrar todas las acciones"]].map(([t,s],i)=><div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.45rem 0",borderBottom:"1px solid var(--border)"}}><div><div style={{fontSize:"0.8rem",fontWeight:600}}>{t}</div><div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{s}</div></div><div className="tog on" onClick={e=>e.currentTarget.classList.toggle("on")}><div className="tog-k" /></div></div>)}</div></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ViewSistema() {
+  const [usuarios, setUsuarios] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(null);
+  const [tab, setTab] = useState("todos");
+  const cargar = async () => { setLoading(true); try { const r=await fetch("/api/usuarios"); const d=await r.json(); if(d.ok) setUsuarios(d.usuarios); } catch(_){} setLoading(false); };
+  useEffect(() => { cargar(); }, []);
+  const actualizar = async (id,cambios,email,nombre) => {
+    setSaving(id);
+    try {
+      if(cambios.status==="approved") await fetch("/api/usuarios/aprobar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,email,nombre})});
+      else if(cambios.status==="rejected") await fetch("/api/usuarios/rechazar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,email,nombre})});
+      else await fetch("/api/usuarios",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,...cambios})});
+      await cargar();
+    } catch(_){}
+    setSaving(null);
+  };
+  const eliminar = async (id,nombre) => { if(!confirm(`¿Eliminar a ${nombre||"este usuario"}?`)) return; setSaving(id); try { await fetch("/api/usuarios",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})}); await cargar(); } catch(_){} setSaving(null); };
+  const STATUS_BADGE = { approved:{cls:"bdg-em",label:"Aprobado"}, pending:{cls:"bdg-amber",label:"Pendiente"}, rejected:{cls:"bdg-red",label:"Rechazado"} };
+  const pendientes = usuarios.filter(u=>u.status==="pending");
+  const lista = tab==="pendientes" ? pendientes : usuarios;
+  return (
+    <div className="view-anim">
+      <div className="vh"><div><div className="vh-title">Usuarios y Permisos</div><div className="vh-sub">{usuarios.length} usuarios · {pendientes.length} pendientes</div></div><button className="btn btn-out btn-sm" onClick={cargar}><i className="bi bi-arrow-clockwise" /></button></div>
+      <Tabs tabs={[["todos","Todos","bi-people"],["pendientes","Pendientes","bi-hourglass-split"]]} active={tab} onChange={setTab} extraBadge={tab==="todos"&&pendientes.length>0?{tab:"pendientes",count:pendientes.length}:null} />
+      <div className="card">
+        {loading ? <Cargando texto="Cargando usuarios..." /> : (
+          <table className="tbl">
+            <thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Activo</th><th>Último acceso</th><th>Registrado</th><th>Acciones</th></tr></thead>
+            <tbody>
+              {lista.length===0 ? <tr><td colSpan={7} style={{textAlign:"center",padding:"2rem",color:"var(--muted)"}}>{tab==="pendientes"?"No hay solicitudes pendientes":"No hay usuarios"}</td></tr>
+              : lista.map(u=>(
+                <tr key={u.id}>
+                  <td><div style={{display:"flex",alignItems:"center",gap:8}}><Av letra={u.nombre?.[0]} size={28} /><div><div style={{fontWeight:600,fontSize:"0.8rem"}}>{u.nombre||"—"}</div><div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{u.email}</div></div></div></td>
+                  <td><select value={u.rol} disabled={saving===u.id} onChange={e=>actualizar(u.id,{rol:e.target.value},u.email,u.nombre)} style={{padding:"0.25rem 0.5rem",borderRadius:"var(--r-sm)",border:"1px solid var(--border2)",fontSize:"0.75rem",fontFamily:"inherit",background:"var(--white)",cursor:"pointer"}}><option value="superadmin">Superadmin</option><option value="admin">Admin</option><option value="vendedor">Vendedor</option><option value="viewer">Viewer</option></select></td>
+                  <td><span className={`bdg ${STATUS_BADGE[u.status]?.cls??"bdg-moon"}`}>{STATUS_BADGE[u.status]?.label??u.status}</span></td>
+                  <td><div className={`tog${u.activo?" on":""}`} onClick={()=>saving!==u.id&&actualizar(u.id,{activo:u.activo?0:1},u.email,u.nombre)} style={{cursor:saving===u.id?"not-allowed":"pointer"}}><div className="tog-k" /></div></td>
+                  <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>{u.ultimo_acceso?new Date(u.ultimo_acceso).toLocaleDateString("es-AR"):"Nunca"}</td>
+                  <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>{new Date(u.creado_en).toLocaleDateString("es-AR")}</td>
+                  <td><div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                    {u.status==="pending"&&<><button className="btn btn-em btn-xs" disabled={saving===u.id} onClick={()=>actualizar(u.id,{status:"approved"},u.email,u.nombre)}><i className="bi bi-check-lg" /> Aprobar</button><button className="btn btn-xs btn-out" disabled={saving===u.id} onClick={()=>actualizar(u.id,{status:"rejected",activo:0},u.email,u.nombre)}><i className="bi bi-x-lg" /> Rechazar</button></>}
+                    {u.status==="approved"&&<button className="btn btn-xs btn-out" disabled={saving===u.id} onClick={()=>actualizar(u.id,{status:"rejected",activo:0},u.email,u.nombre)}><i className="bi bi-slash-circle" /> Revocar</button>}
+                    {u.status==="rejected"&&<button className="btn btn-xs btn-out" disabled={saving===u.id} onClick={()=>actualizar(u.id,{status:"approved",activo:1},u.email,u.nombre)}><i className="bi bi-arrow-counterclockwise" /> Restaurar</button>}
+                    <button className="btn btn-xs" disabled={saving===u.id} onClick={()=>eliminar(u.id,u.nombre)} style={{background:"var(--red-bg)",color:"var(--red)",border:"1px solid #f5c6c6"}}><i className="bi bi-trash3" /></button>
+                  </div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ViewPerfil() {
+  const { data: session } = useSession();
+  const userName = session?.user?.name;
+  const userInitial = userName?.[0]?.toUpperCase();
+  return (
+    <div className="view-anim" style={{maxWidth:680}}>
+      <div className="vh"><div><div className="vh-title">Mi perfil</div><div className="vh-sub">Información de tu cuenta</div></div></div>
+      <div className="cfg-section">
+        <div className="cfg-hdr"><i className="bi bi-person-circle" style={{color:"var(--pr)"}} /><span className="cfg-title">Cuenta</span></div>
+        <div className="cfg-body">
+          <div style={{display:"flex",alignItems:"center",gap:"1rem"}}>
+            {session?.user?.image ? <img src={session.user.image} alt="" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"2px solid var(--border)"}} referrerPolicy="no-referrer" /> : <div style={{width:56,height:56,borderRadius:"50%",background:"var(--pr)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.4rem",fontWeight:700,color:"#fff"}}>{userInitial}</div>}
+            <div><div style={{fontSize:"1rem",fontWeight:700,color:"var(--text)"}}>{userName}</div><div style={{fontSize:"0.78rem",color:"var(--muted)",marginTop:2}}>{session?.user?.email}</div><div style={{marginTop:6,display:"flex",alignItems:"center",gap:5}}><svg width="14" height="14" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.96L3.964 7.292C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg><span style={{fontSize:"0.7rem",color:"var(--muted)"}}>Cuenta Google · Solo lectura</span></div></div>
           </div>
         </div>
-      )}
+      </div>
+      <div className="cfg-section">
+        <div className="cfg-hdr"><i className="bi bi-headset" style={{color:"var(--pr)"}} /><span className="cfg-title">Soporte</span></div>
+        <div style={{padding:0}}>
+          <a href="mailto:soporte@gestion360ia.com.ar" style={{textDecoration:"none"}}><div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.7rem 1rem",cursor:"pointer",borderBottom:"1px solid var(--border)",transition:"background .12s"}} onMouseEnter={e=>e.currentTarget.style.background="var(--bg)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><i className="bi bi-envelope" style={{color:"var(--pr)",fontSize:"0.88rem",width:16,textAlign:"center"}} /><div style={{flex:1}}><div style={{fontSize:"0.8rem",fontWeight:600,color:"var(--text)"}}>Contactar soporte</div><div style={{fontSize:"0.67rem",color:"var(--muted)"}}>soporte@gestion360ia.com.ar</div></div><i className="bi bi-chevron-right" style={{color:"var(--muted)",fontSize:"0.7rem"}} /></div></a>
+        </div>
+      </div>
+      <div className="cfg-section"><div className="cfg-body"><button className="btn" onClick={()=>signOut({callbackUrl:"/"})} style={{width:"100%",justifyContent:"center",background:"var(--red-bg)",color:"var(--red)",border:"1px solid #f5c6c6",fontWeight:600}}><i className="bi bi-box-arrow-right" /> Cerrar sesión</button></div></div>
+    </div>
+  );
+}
+
+/* ══ COMPONENTES UTILITARIOS ══ */
+
+function Av({ letra, size=28, r, fontSize="0.7rem" }) {
+  return (
+    <div style={{width:size,height:size,borderRadius:r||"50%",background:"var(--pr-pale)",display:"flex",alignItems:"center",justifyContent:"center",fontSize,fontWeight:700,color:"var(--pr)",flexShrink:0}}>
+      {letra?.toUpperCase()||"?"}
+    </div>
+  );
+}
+
+function Cargando({ texto }) {
+  return (
+    <div style={{padding:"2.5rem",textAlign:"center",color:"var(--muted)"}}>
+      <i className="bi bi-hourglass-split" style={{fontSize:"1.4rem",display:"block",marginBottom:8}} />
+      {texto}
+    </div>
+  );
+}
+
+function ErrorMsg({ msg }) {
+  return (
+    <div style={{background:"var(--red-bg)",border:"1px solid #f5c6c6",borderRadius:"var(--r-sm)",padding:"0.5rem 0.75rem",fontSize:"0.78rem",color:"var(--red)"}}>
+      <i className="bi bi-exclamation-circle" /> {msg}
+    </div>
+  );
+}
+
+function Modal({ title, onClose, children, maxWidth=480 }) {
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"1rem"}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:"#fff",borderRadius:"var(--r)",width:"100%",maxWidth,boxShadow:"0 20px 60px rgba(15,23,42,.2)",overflow:"hidden"}}>
+        <div style={{padding:"1rem 1.2rem",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--bg)"}}>
+          <div style={{fontWeight:700,fontSize:"0.9rem",color:"var(--text)"}}>{title}</div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:"1rem"}}><i className="bi bi-x-lg" /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ModalFooter({ onCancel, onConfirm, saving, labelConfirm }) {
+  return (
+    <div style={{padding:"0.9rem 1.2rem",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:"0.5rem",background:"var(--bg)"}}>
+      <button className="btn btn-out btn-sm" onClick={onCancel}>Cancelar</button>
+      <button className="btn btn-em btn-sm" onClick={onConfirm} disabled={saving}>
+        {saving ? <><i className="bi bi-hourglass-split" /> Guardando…</> : <><i className="bi bi-check-lg" /> {labelConfirm}</>}
+      </button>
+    </div>
+  );
+}
+
+function Tabs({ tabs, active, onChange, extraBadge }) {
+  return (
+    <div style={{display:"flex",gap:4,marginBottom:"0.9rem",borderBottom:"1px solid var(--border)"}}>
+      {tabs.map(([id,label,icon])=>(
+        <button key={id} onClick={()=>onChange(id)} style={{padding:"0.45rem 0.9rem",border:"none",background:"none",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:active===id?700:500,color:active===id?"var(--pr)":"var(--sub)",cursor:"pointer",borderBottom:active===id?"2px solid var(--pr)":"2px solid transparent",display:"flex",alignItems:"center",gap:5,marginBottom:-1}}>
+          <i className={`bi ${icon}`} />{label}
+          {extraBadge?.tab===id&&extraBadge.count>0&&<span style={{background:"var(--red)",color:"#fff",fontSize:"0.57rem",fontWeight:700,padding:"0.1rem 0.4rem",borderRadius:9,marginLeft:2}}>{extraBadge.count}</span>}
+        </button>
+      ))}
     </div>
   );
 }
