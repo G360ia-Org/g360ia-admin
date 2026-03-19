@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 
 const VIEWS = {
@@ -15,20 +15,33 @@ const VIEWS = {
   auditoria:      ["Auditoría",        "Registro de actividad"],
   configuracion:  ["Configuración",    "Ajustes del sistema"],
   sistema:        ["Sistema",          "Usuarios, permisos y accesos"],
+  perfil:         ["Mi perfil",        "Configuración de tu cuenta"],
 };
 
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [view, setView] = useState("dashboard");
   const [collapsed, setCollapsed] = useState(false);
+  const [menuUsuario, setMenuUsuario] = useState(false);
+  const menuRef = useRef(null);
 
   const nav = (id) => setView(id);
   const userName = session?.user?.name || "Admin";
   const userInitial = userName[0]?.toUpperCase() || "A";
 
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    function handleClick(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuUsuario(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   return (
     <>
-
       <div className="g360-wrap">
         {/* ══ SIDEBAR ══ */}
         <nav id="sb" className={collapsed ? "collapsed" : ""}>
@@ -70,18 +83,78 @@ export default function DashboardPage() {
             <NavItem id="configuracion"  icon="bi-gear"           label="Configuración"  active={view==="configuracion"}  onClick={nav} />
           </div>
 
+          {/* ══ FOOTER USUARIO ══ */}
           <div className="sb-foot">
-            <div className="sb-user" onClick={() => signOut({ callbackUrl: "/" })}>
-              {session?.user?.image ? (
-                <img src={session.user.image} alt="" className="sb-av" style={{borderRadius:"50%",objectFit:"cover"}} referrerPolicy="no-referrer" />
-              ) : (
-                <div className="sb-av">{userInitial}</div>
-              )}
-              <div className="sb-user-texts">
-                <div className="sb-uname">{userName}</div>
-                <div className="sb-urole">Superadmin</div>
+            <div className="sb-user" ref={menuRef} style={{position:"relative"}}>
+              <div
+                style={{display:"flex",alignItems:"center",gap:"0.55rem",flex:1,minWidth:0,padding:"0.44rem 0.55rem",borderRadius:"var(--r-sm)",cursor:"pointer",transition:"background .13s"}}
+                onClick={() => !collapsed && setMenuUsuario(m => !m)}
+                onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,.08)"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                {session?.user?.image ? (
+                  <img src={session.user.image} alt="" className="sb-av" style={{borderRadius:"50%",objectFit:"cover"}} referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="sb-av">{userInitial}</div>
+                )}
+                <div className="sb-user-texts">
+                  <div className="sb-uname">{userName}</div>
+                  <div className="sb-urole">Superadmin</div>
+                </div>
+                <i
+                  className="bi bi-three-dots-vertical sb-user-more"
+                  style={{color:"rgba(255,255,255,.5)",fontSize:"0.8rem",flexShrink:0}}
+                  onClick={e => { e.stopPropagation(); setMenuUsuario(m => !m); }}
+                />
               </div>
-              <i className="bi bi-three-dots-vertical sb-user-more" style={{color:"rgba(255,255,255,.5)",fontSize:"0.8rem",flexShrink:0}} />
+
+              {/* Dropdown */}
+              {menuUsuario && (
+                <div style={{
+                  position:"absolute", bottom:"calc(100% + 8px)", left:6, right:6,
+                  background:"#fff", border:"1px solid var(--border)",
+                  borderRadius:"var(--r)", boxShadow:"var(--sh-md)",
+                  zIndex:999, overflow:"hidden",
+                }}>
+                  {/* Encabezado */}
+                  <div style={{padding:"0.7rem 0.85rem",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                    {session?.user?.image ? (
+                      <img src={session.user.image} alt="" style={{width:28,height:28,borderRadius:"50%",objectFit:"cover"}} referrerPolicy="no-referrer" />
+                    ) : (
+                      <div style={{width:28,height:28,borderRadius:"50%",background:"var(--pr)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",fontWeight:700,color:"#fff"}}>{userInitial}</div>
+                    )}
+                    <div>
+                      <div style={{fontSize:"0.78rem",fontWeight:600,color:"var(--text)"}}>{userName}</div>
+                      <div style={{fontSize:"0.65rem",color:"var(--muted)"}}>{session?.user?.email}</div>
+                    </div>
+                  </div>
+
+                  {/* Opciones principales */}
+                  <div style={{padding:"0.3rem 0"}}>
+                    <DropdownItem
+                      icon="bi-person"
+                      label="Mi perfil"
+                      onClick={() => { setMenuUsuario(false); nav("perfil"); }}
+                    />
+                    <DropdownItem
+                      icon="bi-eye"
+                      label="Ver como cliente"
+                      onClick={() => { setMenuUsuario(false); }}
+                      muted
+                    />
+                  </div>
+
+                  {/* Cerrar sesión */}
+                  <div style={{borderTop:"1px solid var(--border)",padding:"0.3rem 0"}}>
+                    <DropdownItem
+                      icon="bi-box-arrow-right"
+                      label="Cerrar sesión"
+                      onClick={() => signOut({ callbackUrl: "/" })}
+                      danger
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </nav>
@@ -114,6 +187,7 @@ export default function DashboardPage() {
             {view === "auditoria"      && <ViewAuditoria />}
             {view === "configuracion"  && <ViewConfiguracion />}
             {view === "sistema"        && <ViewSistema />}
+            {view === "perfil"         && <ViewPerfil />}
           </div>
         </div>
       </div>
@@ -176,8 +250,7 @@ export default function DashboardPage() {
         #sb.collapsed .ni-badge { opacity:0; width:0; padding:0; overflow:hidden; }
         #sb.collapsed .ni[data-tip]:hover::after { content:attr(data-tip); position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%); background:var(--text); color:#fff; font-size:0.71rem; font-family:'Inter',sans-serif; padding:4px 9px; border-radius:6px; white-space:nowrap; pointer-events:none; z-index:300; box-shadow:0 3px 10px rgba(0,0,0,.18); }
         .sb-foot { margin-top:auto; border-top:1px solid var(--sb-brd); padding:8px 6px; flex-shrink:0; overflow:hidden; }
-        .sb-user { display:flex; align-items:center; gap:0.55rem; padding:0.44rem 0.55rem; border-radius:var(--r-sm); cursor:pointer; transition:background .13s; white-space:nowrap; }
-        .sb-user:hover { background:rgba(255,255,255,.08); }
+        .sb-user { display:flex; align-items:center; white-space:nowrap; }
         .sb-av { width:28px; height:28px; background:linear-gradient(135deg,var(--pr-d),var(--pr)); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.68rem; font-weight:700; color:#fff; flex-shrink:0; }
         .sb-uname { font-size:0.78rem; font-weight:600; color:#fff; }
         .sb-urole { font-size:0.6rem; color:var(--muted); }
@@ -214,7 +287,6 @@ export default function DashboardPage() {
         .g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.9rem; margin-bottom:0.9rem; }
         .g4 { display:grid; grid-template-columns:repeat(4,1fr); gap:0.9rem; margin-bottom:0.9rem; }
         .g32 { display:grid; grid-template-columns:2fr 1fr; gap:0.9rem; margin-bottom:0.9rem; }
-        .g2 { margin-bottom:0.9rem; }
 
         /* KPI */
         .kpi { background:var(--white); border:1px solid var(--border); border-radius:var(--r); padding:0.9rem 1rem; box-shadow:var(--sh); }
@@ -388,12 +460,34 @@ export default function DashboardPage() {
   );
 }
 
+/* ══ COMPONENTES REUTILIZABLES ══ */
+
 function NavItem({ id, icon, label, active, onClick, badge, badgeClass }) {
   return (
     <div className={`ni${active ? " on" : ""}`} data-tip={label} onClick={() => onClick(id)}>
       <i className={`bi ${icon} ni-ic`} />
       <span className="ni-txt">{label}</span>
       {badge && <span className={`ni-badge${badgeClass ? " " + badgeClass : ""}`}>{badge}</span>}
+    </div>
+  );
+}
+
+function DropdownItem({ icon, label, onClick, danger, muted }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        display:"flex", alignItems:"center", gap:"0.55rem",
+        padding:"0.45rem 0.85rem", cursor:"pointer",
+        fontSize:"0.8rem", fontWeight:500,
+        color: danger ? "var(--red)" : muted ? "var(--muted)" : "var(--text)",
+        transition:"background .12s",
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = danger ? "var(--red-bg)" : "var(--bg)"}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+    >
+      <i className={`bi ${icon}`} style={{fontSize:"0.88rem",width:16,textAlign:"center"}} />
+      {label}
     </div>
   );
 }
@@ -848,7 +942,6 @@ function ViewSistema() {
         </button>
       </div>
 
-      {/* Tabs */}
       <div style={{display:"flex",gap:4,marginBottom:"0.9rem",borderBottom:"1px solid var(--border)"}}>
         {[["todos","Todos","bi-people"],["pendientes","Pendientes","bi-hourglass-split"]].map(([id,label,icon]) => (
           <button key={id} onClick={() => setTab(id)} style={{
@@ -878,13 +971,8 @@ function ViewSistema() {
           <table className="tbl">
             <thead>
               <tr>
-                <th>Usuario</th>
-                <th>Rol</th>
-                <th>Estado</th>
-                <th>Activo</th>
-                <th>Último acceso</th>
-                <th>Registrado</th>
-                <th>Acciones</th>
+                <th>Usuario</th><th>Rol</th><th>Estado</th><th>Activo</th>
+                <th>Último acceso</th><th>Registrado</th><th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -906,29 +994,20 @@ function ViewSistema() {
                     </div>
                   </td>
                   <td>
-                    <select
-                      value={u.rol}
-                      disabled={saving === u.id}
+                    <select value={u.rol} disabled={saving === u.id}
                       onChange={e => actualizar(u.id, { rol: e.target.value }, u.email, u.nombre)}
-                      style={{padding:"0.25rem 0.5rem",borderRadius:"var(--r-sm)",border:"1px solid var(--border2)",fontSize:"0.75rem",fontFamily:"inherit",background:"var(--white)",cursor:"pointer"}}
-                    >
+                      style={{padding:"0.25rem 0.5rem",borderRadius:"var(--r-sm)",border:"1px solid var(--border2)",fontSize:"0.75rem",fontFamily:"inherit",background:"var(--white)",cursor:"pointer"}}>
                       <option value="superadmin">Superadmin</option>
                       <option value="admin">Admin</option>
                       <option value="vendedor">Vendedor</option>
                       <option value="viewer">Viewer</option>
                     </select>
                   </td>
+                  <td><span className={`bdg ${STATUS_BADGE[u.status]?.cls ?? "bdg-moon"}`}>{STATUS_BADGE[u.status]?.label ?? u.status}</span></td>
                   <td>
-                    <span className={`bdg ${STATUS_BADGE[u.status]?.cls ?? "bdg-moon"}`}>
-                      {STATUS_BADGE[u.status]?.label ?? u.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div
-                      className={`tog${u.activo ? " on" : ""}`}
+                    <div className={`tog${u.activo ? " on" : ""}`}
                       onClick={() => saving !== u.id && actualizar(u.id, { activo: u.activo ? 0 : 1 }, u.email, u.nombre)}
-                      style={{cursor: saving===u.id ? "not-allowed" : "pointer"}}
-                    >
+                      style={{cursor: saving===u.id ? "not-allowed" : "pointer"}}>
                       <div className="tog-k" />
                     </div>
                   </td>
@@ -964,8 +1043,7 @@ function ViewSistema() {
                           <i className="bi bi-arrow-counterclockwise" /> Restaurar
                         </button>
                       )}
-                      <button
-                        className="btn btn-xs" disabled={saving===u.id}
+                      <button className="btn btn-xs" disabled={saving===u.id}
                         onClick={() => eliminar(u.id, u.nombre)}
                         style={{background:"var(--red-bg)",color:"var(--red)",border:"1px solid #f5c6c6"}}>
                         <i className="bi bi-trash3" />
@@ -978,6 +1056,184 @@ function ViewSistema() {
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+function ViewPerfil() {
+  const { data: session } = useSession();
+  const [sesiones, setSesiones] = useState([]);
+  const [loadingSesiones, setLoadingSesiones] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/perfil/sesiones")
+      .then(r => r.json())
+      .then(d => { if (d.ok) setSesiones(d.sesiones); })
+      .catch(() => {})
+      .finally(() => setLoadingSesiones(false));
+  }, []);
+
+  const formatFecha = (f) => {
+    const d = new Date(f);
+    return d.toLocaleDateString("es-AR", { day:"2-digit", month:"short", year:"numeric" })
+      + " · " + d.toLocaleTimeString("es-AR", { hour:"2-digit", minute:"2-digit" });
+  };
+
+  return (
+    <div className="view-anim" style={{maxWidth:680}}>
+      <div className="vh">
+        <div><div className="vh-title">Mi perfil</div><div className="vh-sub">Información de tu cuenta</div></div>
+      </div>
+
+      {/* Cuenta */}
+      <div className="cfg-section">
+        <div className="cfg-hdr"><i className="bi bi-person-circle" style={{color:"var(--pr)"}} /><span className="cfg-title">Cuenta</span></div>
+        <div className="cfg-body">
+          <div style={{display:"flex",alignItems:"center",gap:"1rem"}}>
+            {session?.user?.image ? (
+              <img src={session.user.image} alt="" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"2px solid var(--border)"}} referrerPolicy="no-referrer" />
+            ) : (
+              <div style={{width:56,height:56,borderRadius:"50%",background:"var(--pr)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.4rem",fontWeight:700,color:"#fff"}}>
+                {session?.user?.name?.[0]?.toUpperCase()}
+              </div>
+            )}
+            <div>
+              <div style={{fontSize:"1rem",fontWeight:700,color:"var(--text)"}}>{session?.user?.name}</div>
+              <div style={{fontSize:"0.78rem",color:"var(--muted)",marginTop:2}}>{session?.user?.email}</div>
+              <div style={{marginTop:6,display:"flex",alignItems:"center",gap:5}}>
+                <svg width="14" height="14" viewBox="0 0 18 18">
+                  <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+                  <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+                  <path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+                  <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.96L3.964 7.292C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+                </svg>
+                <span style={{fontSize:"0.7rem",color:"var(--muted)"}}>Cuenta Google · Solo lectura</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sesiones activas */}
+      <div className="cfg-section">
+        <div className="cfg-hdr"><i className="bi bi-shield-lock" style={{color:"var(--pr)"}} /><span className="cfg-title">Sesiones activas</span></div>
+        <div style={{padding:0}}>
+          {loadingSesiones ? (
+            <div style={{padding:"1.5rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Cargando...</div>
+          ) : sesiones.length === 0 ? (
+            <div style={{padding:"1.5rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Sin registros todavía</div>
+          ) : sesiones.slice(0,3).map((s,i) => (
+            <div key={s.id} style={{
+              display:"flex",alignItems:"center",gap:"0.75rem",
+              padding:"0.7rem 1rem",
+              borderBottom: i < Math.min(sesiones.length,3)-1 ? "1px solid var(--border)" : "none"
+            }}>
+              <div style={{width:32,height:32,borderRadius:8,background: i===0 ? "var(--em-pale)" : "var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <i className={`bi ${s.dispositivo?.includes("Android")||s.dispositivo?.includes("iOS") ? "bi-phone" : "bi-laptop"}`}
+                  style={{fontSize:"0.88rem",color: i===0 ? "var(--em-d)" : "var(--sub)"}} />
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:"0.8rem",fontWeight:600,color:"var(--text)",display:"flex",alignItems:"center",gap:6}}>
+                  {s.dispositivo || "Dispositivo desconocido"}
+                  {i===0 && <span style={{background:"var(--em-pale)",color:"var(--em-d)",fontSize:"0.6rem",fontWeight:700,padding:"1px 7px",borderRadius:9}}>Actual</span>}
+                </div>
+                <div style={{fontSize:"0.67rem",color:"var(--muted)",marginTop:1}}>
+                  {s.ip ? `IP: ${s.ip} · ` : ""}{formatFecha(s.creado_en)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Historial de accesos */}
+      <div className="cfg-section">
+        <div className="cfg-hdr"><i className="bi bi-clock-history" style={{color:"var(--pr)"}} /><span className="cfg-title">Historial de accesos</span></div>
+        <div style={{padding:0}}>
+          {loadingSesiones ? (
+            <div style={{padding:"1.5rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Cargando...</div>
+          ) : sesiones.length === 0 ? (
+            <div style={{padding:"1.5rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}>Sin historial todavía</div>
+          ) : sesiones.map((s,i) => (
+            <div key={s.id} style={{
+              display:"flex",alignItems:"center",gap:"0.75rem",
+              padding:"0.55rem 1rem",
+              borderBottom: i < sesiones.length-1 ? "1px solid var(--border)" : "none"
+            }}>
+              <i className="bi bi-circle-fill" style={{fontSize:"0.4rem",color:"var(--muted)",flexShrink:0}} />
+              <div style={{flex:1,fontSize:"0.77rem",color:"var(--text2)"}}>
+                {s.dispositivo || "Dispositivo desconocido"}
+                {s.ip && <span style={{color:"var(--muted)"}}> · {s.ip}</span>}
+              </div>
+              <div style={{fontSize:"0.67rem",color:"var(--muted)",flexShrink:0}}>{formatFecha(s.creado_en)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Soporte */}
+      <div className="cfg-section">
+        <div className="cfg-hdr"><i className="bi bi-headset" style={{color:"var(--pr)"}} /><span className="cfg-title">Soporte</span></div>
+        <div style={{padding:0}}>
+          <a href="mailto:soporte@gestion360ia.com.ar" style={{textDecoration:"none"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.7rem 1rem",cursor:"pointer",borderBottom:"1px solid var(--border)",transition:"background .12s"}}
+              onMouseEnter={e=>e.currentTarget.style.background="var(--bg)"}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <i className="bi bi-envelope" style={{color:"var(--pr)",fontSize:"0.88rem",width:16,textAlign:"center"}} />
+              <div style={{flex:1}}>
+                <div style={{fontSize:"0.8rem",fontWeight:600,color:"var(--text)"}}>Contactar soporte</div>
+                <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>soporte@gestion360ia.com.ar</div>
+              </div>
+              <i className="bi bi-chevron-right" style={{color:"var(--muted)",fontSize:"0.7rem"}} />
+            </div>
+          </a>
+          <div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.7rem 1rem",cursor:"pointer",transition:"background .12s"}}
+            onMouseEnter={e=>e.currentTarget.style.background="var(--bg)"}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            <i className="bi bi-whatsapp" style={{color:"#25D366",fontSize:"0.88rem",width:16,textAlign:"center"}} />
+            <div style={{flex:1}}>
+              <div style={{fontSize:"0.8rem",fontWeight:600,color:"var(--text)"}}>WhatsApp soporte</div>
+              <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>Respuesta en horario comercial</div>
+            </div>
+            <i className="bi bi-chevron-right" style={{color:"var(--muted)",fontSize:"0.7rem"}} />
+          </div>
+        </div>
+      </div>
+
+      {/* Información */}
+      <div className="cfg-section">
+        <div className="cfg-hdr"><i className="bi bi-info-circle" style={{color:"var(--pr)"}} /><span className="cfg-title">Información</span></div>
+        <div style={{padding:0}}>
+          {[
+            {icon:"bi-book",label:"Documentación",url:"https://gestion360ia.com.ar/docs"},
+            {icon:"bi-shield-check",label:"Política de privacidad",url:"https://gestion360ia.com.ar/privacidad"},
+            {icon:"bi-file-text",label:"Términos de uso",url:"https://gestion360ia.com.ar/terminos"},
+          ].map((item,i,arr) => (
+            <a key={i} href={item.url} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.7rem 1rem",cursor:"pointer",borderBottom: i<arr.length-1 ? "1px solid var(--border)" : "none",transition:"background .12s"}}
+                onMouseEnter={e=>e.currentTarget.style.background="var(--bg)"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <i className={`bi ${item.icon}`} style={{color:"var(--pr)",fontSize:"0.88rem",width:16,textAlign:"center"}} />
+                <div style={{flex:1,fontSize:"0.8rem",fontWeight:600,color:"var(--text)"}}>{item.label}</div>
+                <i className="bi bi-box-arrow-up-right" style={{color:"var(--muted)",fontSize:"0.7rem"}} />
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* Cerrar sesión */}
+      <div className="cfg-section">
+        <div className="cfg-body">
+          <button
+            className="btn"
+            onClick={() => signOut({ callbackUrl: "/" })}
+            style={{width:"100%",justifyContent:"center",background:"var(--red-bg)",color:"var(--red)",border:"1px solid #f5c6c6",fontWeight:600}}>
+            <i className="bi bi-box-arrow-right" /> Cerrar sesión
+          </button>
+        </div>
+      </div>
+
     </div>
   );
 }
