@@ -80,8 +80,9 @@ export async function GET(req) {
 
   q += ` ORDER BY vl.actualizado_en DESC`;
 
-  const [funnel] = await db.query(q, params);
-
+console.log("FUNNEL QUERY:", q, params);
+const [funnel] = await db.query(q, params);
+console.log("FUNNEL RESULT:", JSON.stringify(funnel));
   const etapas = {
     contactado:  [],
     interesado:  [],
