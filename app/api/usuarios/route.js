@@ -1,5 +1,4 @@
 export const dynamic = "force-dynamic";
-
 import { NextResponse } from "next/server";
 import db from "../../../lib/db";
 
@@ -7,7 +6,8 @@ import db from "../../../lib/db";
 export async function GET() {
   try {
     const [rows] = await db.query(
-      `SELECT id, nombre, email, rol, status, activo, creado_en, ultimo_acceso
+      `SELECT id, nombre, email, rol, area, titulo, status, activo, creado_en, ultimo_acceso,
+              rubros_especialidad, modulos_especialidad, tasa_cierre, mrr_generado
        FROM usuarios
        ORDER BY creado_en DESC`
     );
@@ -17,33 +17,24 @@ export async function GET() {
   }
 }
 
-// PATCH — actualizar rol, status o activo de un usuario
+// PATCH — actualizar campos del usuario
 export async function PATCH(req) {
   try {
-    const { id, rol, status, activo } = await req.json();
-
-    if (!id) {
-      return NextResponse.json({ ok: false, error: "Falta id" }, { status: 400 });
-    }
+    const { id, rol, status, activo, area, titulo } = await req.json();
+    if (!id) return NextResponse.json({ ok: false, error: "Falta id" }, { status: 400 });
 
     const campos = [];
     const valores = [];
-
-    if (rol !== undefined)    { campos.push("rol = ?");    valores.push(rol); }
+    if (rol    !== undefined) { campos.push("rol = ?");    valores.push(rol); }
     if (status !== undefined) { campos.push("status = ?"); valores.push(status); }
     if (activo !== undefined) { campos.push("activo = ?"); valores.push(activo); }
+    if (area   !== undefined) { campos.push("area = ?");   valores.push(area || null); }
+    if (titulo !== undefined) { campos.push("titulo = ?"); valores.push(titulo || null); }
 
-    if (campos.length === 0) {
-      return NextResponse.json({ ok: false, error: "Nada que actualizar" }, { status: 400 });
-    }
+    if (campos.length === 0) return NextResponse.json({ ok: false, error: "Nada que actualizar" }, { status: 400 });
 
     valores.push(id);
-
-    await db.query(
-      `UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`,
-      valores
-    );
-
+    await db.query(`UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`, valores);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
