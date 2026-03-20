@@ -837,7 +837,7 @@ function ViewConversaciones({ session, onNavegar }) {
   const [mensajes, setMensajes] = useState([]);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
-  const [filtroEstado, setFiltroEstado] = useState("nueva");
+  const [filtroEstado, setFiltroEstado] = useState("todas");
   const [filtroCanal, setFiltroCanal] = useState("todos");
   const [modalAsignar, setModalAsignar] = useState(false);
   const [asignandoId, setAsignandoId] = useState(null);
