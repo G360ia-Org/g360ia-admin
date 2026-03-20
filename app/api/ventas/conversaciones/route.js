@@ -1,3 +1,6 @@
+// app/api/ventas/conversaciones/route.js
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -8,35 +11,38 @@ export async function GET(request) {
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
-  const estado = searchParams.get("estado") || null;
+  const estado   = searchParams.get("estado")   || null;
+  const canal    = searchParams.get("canal")    || null;
   const asignado = searchParams.get("asignado") || null;
 
   try {
     let query = `
       SELECT 
         vc.*,
-        u.nombre AS vendedor_nombre,
-        u.email AS vendedor_email,
+        u.nombre  AS vendedor_nombre,
+        u.email   AS vendedor_email,
         vl.nombre AS lead_nombre,
         vl.empresa AS lead_empresa
       FROM ventas_conversaciones vc
-      LEFT JOIN usuarios u ON vc.asignado_a = u.id
-      LEFT JOIN ventas_leads vl ON vc.lead_id = vl.id
+      LEFT JOIN usuarios u     ON vc.asignado_a = u.id
+      LEFT JOIN ventas_leads vl ON vc.lead_id   = vl.id
       WHERE 1=1
     `;
     const params = [];
 
-    if (estado) { query += ` AND vc.estado = ?`; params.push(estado); }
-    if (asignado === "null") { query += ` AND vc.asignado_a IS NULL`; }
-    else if (asignado) { query += ` AND vc.asignado_a = ?`; params.push(asignado); }
+    if (estado && estado !== "todas") { query += ` AND vc.estado = ?`;  params.push(estado); }
+    if (canal  && canal  !== "todos") { query += ` AND vc.canal = ?`;   params.push(canal); }
+    if (asignado === "null")          { query += ` AND vc.asignado_a IS NULL`; }
+    else if (asignado)                { query += ` AND vc.asignado_a = ?`; params.push(asignado); }
 
     query += ` ORDER BY vc.actualizado_en DESC`;
 
     const [rows] = await db.query(query, params);
-    return NextResponse.json(rows);
+    return NextResponse.json({ ok: true, conversaciones: rows });
+
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Error al obtener conversaciones" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Error al obtener conversaciones" }, { status: 500 });
   }
 }
 
@@ -57,7 +63,7 @@ export async function POST(request) {
     return NextResponse.json({ id: result.insertId, ok: true });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Error al crear conversación" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Error al crear conversación" }, { status: 500 });
   }
 }
 
@@ -78,6 +84,6 @@ export async function PATCH(request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Error al actualizar conversación" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Error al actualizar conversación" }, { status: 500 });
   }
 }
