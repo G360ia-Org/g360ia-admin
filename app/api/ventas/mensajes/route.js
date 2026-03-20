@@ -6,12 +6,9 @@ import db from "@/lib/db";
 export async function GET(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
   const { searchParams } = new URL(request.url);
   const conversacion_id = searchParams.get("conversacion_id");
-
   if (!conversacion_id) return NextResponse.json({ error: "Falta conversacion_id" }, { status: 400 });
-
   try {
     const [rows] = await db.query(
       `SELECT vm.*, u.nombre AS enviado_por_nombre
@@ -21,18 +18,16 @@ export async function GET(request) {
        ORDER BY vm.creado_en ASC`,
       [conversacion_id]
     );
-
-    // Marcar como leídos
     await db.query(
       `UPDATE ventas_mensajes SET leido = 1 
        WHERE conversacion_id = ? AND direccion = 'entrante' AND leido = 0`,
       [conversacion_id]
     );
-
-    return NextResponse.json(rows);
+    return NextResponse.json({ ok: true, mensajes: rows });
   } catch (error) {
     console.error(error);
-return NextResponse.json({ ok: true, mensajes: rows });  }
+    return NextResponse.json({ error: "Error al obtener mensajes" }, { status: 500 });
+  }
 }
 
 export async function POST(request) {
@@ -43,14 +38,12 @@ export async function POST(request) {
     const { conversacion_id, direccion, contenido } = body;
     const enviado_por = direccion === "saliente" ? session.user.id : null;
 
-    // Guardar en DB
     const [result] = await db.query(
       `INSERT INTO ventas_mensajes (conversacion_id, direccion, contenido, enviado_por)
        VALUES (?, ?, ?, ?)`,
       [conversacion_id, direccion, contenido, enviado_por]
     );
 
-    // Actualizar ultimo_mensaje
     await db.query(
       `UPDATE ventas_conversaciones 
        SET ultimo_mensaje = ?, ultimo_mensaje_at = NOW(), estado = 'en_curso'
@@ -58,10 +51,8 @@ export async function POST(request) {
       [contenido.substring(0, 200), conversacion_id]
     );
 
-    // Enviar por WhatsApp si es saliente
     if (direccion === "saliente") {
       try {
-        // Buscar teléfono de la conversación
         const [[conv]] = await db.query(
           `SELECT vc.contacto_telefono, wi.instance_key
            FROM ventas_conversaciones vc
@@ -69,7 +60,6 @@ export async function POST(request) {
            WHERE vc.id = ? AND vc.canal = 'whatsapp'`,
           [conversacion_id]
         );
-
         if (conv?.contacto_telefono && conv?.instance_key) {
           const telefono = conv.contacto_telefono.replace(/\D/g, "");
           await fetch(`${process.env.EVOLUTION_API_URL}/message/sendText/${conv.instance_key}`, {
