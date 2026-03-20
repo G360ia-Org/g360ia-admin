@@ -66,7 +66,7 @@ export async function GET(req) {
   }
 }
 
-// ── POST ─────────────────────────────────────────────────────
+// ── POST — crear lead manual ─────────────────────────────────
 export async function POST(req) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 });
@@ -112,7 +112,7 @@ export async function POST(req) {
   }
 }
 
-// ── PATCH ────────────────────────────────────────────────────
+// ── PATCH — actualizar / tomar lead ─────────────────────────
 export async function PATCH(req) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 });
@@ -138,7 +138,7 @@ export async function PATCH(req) {
       const asignado = ["superadmin", "admin"].includes(rol) && asignado_a
         ? asignado_a
         : session.user.id;
-      
+
       campos.push("asignado_a = ?");
       valores.push(asignado);
       campos.push("estado = 'contactado'");
@@ -168,7 +168,6 @@ export async function PATCH(req) {
         if (["contactado", "interesado", "seguimiento"].includes(estado)) {
           campos.push("fecha_ultimo_contacto = NOW()");
         }
-        
         if (estado === "cerrado" && ["superadmin", "admin"].includes(session.user.rol)) {
           const [[lead]] = await db.query("SELECT * FROM ventas_leads WHERE id = ?", [id]);
           if (lead?.email) {
@@ -195,9 +194,11 @@ export async function PATCH(req) {
 
     if (!campos.length) return NextResponse.json({ ok: false, error: "Nada que actualizar" }, { status: 400 });
 
+    // El ID siempre va al final para el WHERE id = ?
     valores.push(id);
     await db.query(`UPDATE ventas_leads SET ${campos.join(", ")} WHERE id = ?`, valores);
 
+    // Si se tomó el lead, vincular la conversación existente por lead_id o teléfono
     if (tomar) {
       const [[leadData]] = await db.query(`SELECT telefono FROM ventas_leads WHERE id = ?`, [id]);
       if (leadData?.telefono) {
