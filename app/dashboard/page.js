@@ -534,7 +534,7 @@ function ModalCalificar({ lead, onClose, onGuardar }) {
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={onClose}>
-      <div style={{background:"#fff",borderRadius:var(--r),width:"100%",maxWidth:400,boxShadow:"var(--sh-md)",overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
+      <div style={{background:"#fff",borderRadius:11,width:"100%",maxWidth:400,boxShadow:"var(--sh-md)",overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"1rem 1.2rem",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
             <div style={{fontSize:"0.9rem",fontWeight:700}}>Calificar contacto</div>
