@@ -1269,6 +1269,23 @@ function ViewEquipo() {
   const [editando, setEditando] = useState(null);
   const [formEdit, setFormEdit] = useState({ rol:"", area:"", titulo:"", activo:1 });
   const [saving, setSaving] = useState(false);
+  const [modalPerfil, setModalPerfil] = useState(false);
+  const [perfilData, setPerfilData] = useState(null);
+  const [loadingPerfil, setLoadingPerfil] = useState(false);
+  const [perfilTab, setPerfilTab] = useState("resumen");
+
+  const abrirPerfil = async (u) => {
+    setModalPerfil(true);
+    setPerfilData(null);
+    setPerfilTab("resumen");
+    setLoadingPerfil(true);
+    try {
+      const r = await fetch(`/api/equipos/${u.id}`);
+      const d = await r.json();
+      if (d.ok) setPerfilData(d);
+    } catch(_){}
+    setLoadingPerfil(false);
+  };
 
   const cargar = async () => {
     setLoading(true);
@@ -1443,9 +1460,14 @@ function ViewEquipo() {
                         </span>
                       </td>
                       <td>
-                        <button className="btn btn-xs btn-out" onClick={() => abrirEditar(u)}>
-                          <i className="bi bi-pencil" /> Editar
-                        </button>
+                        <div style={{display:"flex",gap:4}}>
+                          <button className="btn btn-xs btn-em" onClick={() => abrirPerfil(u)}>
+                            <i className="bi bi-person-lines-fill" /> Ver perfil
+                          </button>
+                          <button className="btn btn-xs btn-out" onClick={() => abrirEditar(u)}>
+                            <i className="bi bi-pencil" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1454,6 +1476,221 @@ function ViewEquipo() {
             </div>
           )}
         </>
+      )}
+
+      {/* ══ MODAL PERFIL EMPLEADO ══ */}
+      {modalPerfil && (
+        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"1rem"}}
+          onClick={e=>e.target===e.currentTarget&&setModalPerfil(false)}>
+          <div style={{background:"var(--white)",borderRadius:"var(--r)",width:"100%",maxWidth:860,maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 24px 80px rgba(15,23,42,.25)"}}>
+
+            {/* Header del perfil */}
+            {loadingPerfil ? (
+              <div style={{padding:"3rem",textAlign:"center",color:"var(--muted)"}}>
+                <i className="bi bi-hourglass-split" style={{fontSize:"1.5rem",display:"block",marginBottom:8}} />
+                Cargando perfil…
+              </div>
+            ) : perfilData ? (() => {
+              const { usuario, leads, actividades, conversaciones, kpiMes, actividadPorTipo, metas } = perfilData;
+              const TIPO_ACT = { llamada:{icon:"bi-telephone",color:"var(--pr)",label:"Llamada"}, email:{icon:"bi-envelope",color:"var(--accent)",label:"Email"}, whatsapp:{icon:"bi-whatsapp",color:"#25D366",label:"WhatsApp"}, reunion:{icon:"bi-calendar-check",color:"var(--em-d)",label:"Reunión"}, nota:{icon:"bi-sticky",color:"var(--muted)",label:"Nota"} };
+              const CANAL_COLOR = { whatsapp:"#25D366", instagram:"#E1306C", facebook:"#1877F2", email:"var(--accent)", web:"var(--pr)" };
+              const ESTADO_LEAD_CLS = { nuevo:"bdg-blue", contactado:"bdg-amber", demo:"bdg-pine", propuesta:"bdg-gold", cerrado:"bdg-em", perdido:"bdg-red" };
+
+              return (
+                <>
+                  {/* Cabecera */}
+                  <div style={{padding:"1.2rem 1.4rem",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:"1rem",background:"var(--bg)",flexShrink:0}}>
+                    <Av letra={usuario.nombre?.[0]} size={48} fontSize="1.2rem" />
+                    <div style={{flex:1}}>
+                      <div style={{fontFamily:"'Fraunces',serif",fontSize:"1.15rem",fontWeight:600,color:"var(--text)"}}>{usuario.nombre}</div>
+                      <div style={{fontSize:"0.72rem",color:"var(--muted)",marginTop:1}}>{usuario.email}</div>
+                      <div style={{display:"flex",gap:6,marginTop:5,flexWrap:"wrap"}}>
+                        <span className="bdg bdg-blue" style={{fontSize:"0.62rem"}}>{ROL_META[usuario.rol]?.label || usuario.rol}</span>
+                        {usuario.titulo && <span className="bdg bdg-amber" style={{fontSize:"0.62rem"}}>{usuario.titulo}</span>}
+                        <span className={`bdg ${usuario.activo?"bdg-em":"bdg-red"}`} style={{fontSize:"0.62rem"}}>{usuario.activo?"Activo":"Inactivo"}</span>
+                        {usuario.ultimo_acceso && <span className="bdg bdg-moon" style={{fontSize:"0.62rem"}}>Último acceso: {new Date(usuario.ultimo_acceso).toLocaleDateString("es-AR")}</span>}
+                      </div>
+                    </div>
+                    <button onClick={()=>setModalPerfil(false)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:"1.1rem",padding:"0.3rem"}}><i className="bi bi-x-lg" /></button>
+                  </div>
+
+                  {/* KPIs rápidos */}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:0,borderBottom:"1px solid var(--border)",flexShrink:0}}>
+                    {[
+                      ["bi-person-plus","var(--blue-bg)","var(--blue)",kpiMes?.leads_activos||0,"Leads activos"],
+                      ["bi-check-circle","var(--em-pale)","var(--em-d)",kpiMes?.leads_cerrados||0,"Cerrados este mes"],
+                      ["bi-chat-dots","var(--accent-pale)","var(--accent)",conversaciones?.length||0,"Conversaciones"],
+                      ["bi-lightning-charge","var(--pr-pale)","var(--pr)",actividades?.length||0,"Actividades"],
+                    ].map(([ico,bg,color,val,lbl],i)=>(
+                      <div key={i} style={{padding:"0.8rem 1rem",borderRight:i<3?"1px solid var(--border)":"none",textAlign:"center"}}>
+                        <div style={{width:28,height:28,borderRadius:7,background:bg,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 0.4rem"}}>
+                          <i className={`bi ${ico}`} style={{color,fontSize:"0.82rem"}} />
+                        </div>
+                        <div style={{fontSize:"1.4rem",fontWeight:700,color:"var(--text)",lineHeight:1}}>{val}</div>
+                        <div style={{fontSize:"0.62rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginTop:2}}>{lbl}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Tabs */}
+                  <div style={{display:"flex",gap:0,borderBottom:"1px solid var(--border)",flexShrink:0,background:"var(--white)"}}>
+                    {[["resumen","Resumen","bi-grid-1x2"],["leads","Leads","bi-people"],["conversaciones","Conversaciones","bi-chat-dots"],["actividad","Actividad","bi-journal-text"]].map(([id,label,icon])=>(
+                      <button key={id} onClick={()=>setPerfilTab(id)}
+                        style={{padding:"0.6rem 1rem",border:"none",background:"none",fontFamily:"inherit",fontSize:"0.78rem",fontWeight:perfilTab===id?700:500,color:perfilTab===id?"var(--pr)":"var(--sub)",cursor:"pointer",borderBottom:perfilTab===id?"2px solid var(--pr)":"2px solid transparent",display:"flex",alignItems:"center",gap:5,marginBottom:-1}}>
+                        <i className={`bi ${icon}`} />{label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Contenido tabs */}
+                  <div style={{flex:1,overflowY:"auto",padding:"1rem 1.4rem"}}>
+
+                    {/* TAB RESUMEN */}
+                    {perfilTab==="resumen" && (
+                      <div>
+                        {/* Actividad por tipo */}
+                        <div style={{marginBottom:"1rem"}}>
+                          <div style={{fontSize:"0.65rem",fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:"0.6rem"}}>Actividad últimos 30 días</div>
+                          <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap"}}>
+                            {actividadPorTipo?.length===0 && <div style={{fontSize:"0.78rem",color:"var(--muted)"}}>Sin actividad registrada</div>}
+                            {actividadPorTipo?.map((a,i)=>(
+                              <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"0.4rem 0.7rem",background:"var(--bg)",borderRadius:"var(--r-sm)",border:"1px solid var(--border)"}}>
+                                <i className={`bi ${TIPO_ACT[a.tipo]?.icon||"bi-dot"}`} style={{color:TIPO_ACT[a.tipo]?.color,fontSize:"0.85rem"}} />
+                                <span style={{fontSize:"0.75rem",fontWeight:600}}>{a.total}</span>
+                                <span style={{fontSize:"0.72rem",color:"var(--muted)"}}>{TIPO_ACT[a.tipo]?.label||a.tipo}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Metas del mes */}
+                        {metas && (
+                          <div style={{marginBottom:"1rem"}}>
+                            <div style={{fontSize:"0.65rem",fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:"0.6rem"}}>Metas del mes</div>
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0.6rem"}}>
+                              {[
+                                ["Leads",kpiMes?.leads_activos||0,metas.meta_leads],
+                                ["Cierres",kpiMes?.leads_cerrados||0,metas.meta_cierres],
+                                ["MRR $",kpiMes?.mrr_cerrado_mes||0,metas.meta_mrr],
+                              ].map(([lbl,real,meta],i)=>{
+                                const pct = meta>0 ? Math.min(100,Math.round((real/meta)*100)) : 0;
+                                return (
+                                  <div key={i} style={{background:"var(--bg)",borderRadius:"var(--r-sm)",border:"1px solid var(--border)",padding:"0.65rem 0.8rem"}}>
+                                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.4rem"}}>
+                                      <span style={{fontSize:"0.72rem",color:"var(--muted)"}}>{lbl}</span>
+                                      <span style={{fontSize:"0.72rem",fontWeight:700,color:pct>=100?"var(--em-d)":"var(--text)"}}>{pct}%</span>
+                                    </div>
+                                    <div style={{height:5,background:"var(--border2)",borderRadius:3,overflow:"hidden"}}>
+                                      <div style={{height:"100%",width:`${pct}%`,background:pct>=100?"var(--em)":"var(--pr)",borderRadius:3,transition:"width .3s"}} />
+                                    </div>
+                                    <div style={{fontSize:"0.67rem",color:"var(--muted)",marginTop:"0.3rem"}}>{real} / {meta}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Últimas 5 actividades */}
+                        <div>
+                          <div style={{fontSize:"0.65rem",fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:"0.6rem"}}>Actividad reciente</div>
+                          {actividades?.slice(0,5).length===0 ? <div style={{fontSize:"0.78rem",color:"var(--muted)"}}>Sin actividades</div>
+                          : actividades?.slice(0,5).map((a,i)=>(
+                            <div key={i} style={{display:"flex",gap:"0.6rem",padding:"0.55rem 0",borderBottom:"1px solid var(--border)"}}>
+                              <div style={{width:26,height:26,borderRadius:6,background:"var(--bg)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                                <i className={`bi ${TIPO_ACT[a.tipo]?.icon||"bi-dot"}`} style={{color:TIPO_ACT[a.tipo]?.color,fontSize:"0.78rem"}} />
+                              </div>
+                              <div style={{flex:1}}>
+                                <div style={{fontSize:"0.78rem",color:"var(--text)"}}>{a.descripcion||TIPO_ACT[a.tipo]?.label||a.tipo}</div>
+                                {a.lead_nombre && <div style={{fontSize:"0.67rem",color:"var(--accent)",fontWeight:600}}>→ {a.lead_nombre}{a.lead_empresa?` · ${a.lead_empresa}`:""}</div>}
+                                <div style={{fontSize:"0.65rem",color:"var(--muted)"}}>{new Date(a.fecha_actividad).toLocaleDateString("es-AR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB LEADS */}
+                    {perfilTab==="leads" && (
+                      <div>
+                        <div style={{fontSize:"0.65rem",fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:"0.6rem"}}>Leads asignados ({leads?.length||0})</div>
+                        {leads?.length===0 ? <div style={{padding:"2rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}><i className="bi bi-people" style={{fontSize:"1.5rem",display:"block",marginBottom:6}} />Sin leads asignados</div>
+                        : (
+                          <table className="tbl">
+                            <thead><tr><th>Contacto</th><th>Empresa</th><th>Estado</th><th>MRR Est.</th><th>Última act.</th></tr></thead>
+                            <tbody>
+                              {leads.map(l=>(
+                                <tr key={l.id}>
+                                  <td style={{fontWeight:600,fontSize:"0.79rem"}}>{l.nombre}</td>
+                                  <td style={{fontSize:"0.75rem",color:"var(--muted)"}}>{l.empresa||"—"}</td>
+                                  <td><span className={`bdg ${ESTADO_LEAD_CLS[l.estado]||"bdg-moon"}`} style={{fontSize:"0.62rem"}}>{l.estado}</span></td>
+                                  <td style={{fontSize:"0.78rem",fontWeight:600}}>{l.valor_mrr_estimado?`$${Number(l.valor_mrr_estimado).toLocaleString("es-AR")}`:"—"}</td>
+                                  <td style={{fontSize:"0.7rem",color:"var(--muted)"}}>{new Date(l.actualizado_en).toLocaleDateString("es-AR")}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    )}
+
+                    {/* TAB CONVERSACIONES */}
+                    {perfilTab==="conversaciones" && (
+                      <div>
+                        <div style={{fontSize:"0.65rem",fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:"0.6rem"}}>Conversaciones asignadas ({conversaciones?.length||0})</div>
+                        {conversaciones?.length===0 ? <div style={{padding:"2rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}><i className="bi bi-chat-dots" style={{fontSize:"1.5rem",display:"block",marginBottom:6}} />Sin conversaciones asignadas</div>
+                        : conversaciones.map((c,i)=>(
+                          <div key={c.id} style={{display:"flex",alignItems:"center",gap:"0.7rem",padding:"0.6rem 0",borderBottom:"1px solid var(--border)"}}>
+                            <Av letra={c.contacto_nombre?.[0]||"?"} size={32} />
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontWeight:600,fontSize:"0.8rem"}}>{c.contacto_nombre||"Sin nombre"}</div>
+                              <div style={{fontSize:"0.67rem",color:"var(--muted)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.ultimo_mensaje||"Sin mensajes"}</div>
+                            </div>
+                            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
+                              <span style={{fontSize:"0.62rem",fontWeight:700,padding:"1px 7px",borderRadius:9,background:CANAL_COLOR[c.canal]?`${CANAL_COLOR[c.canal]}22`:"var(--bg)",color:CANAL_COLOR[c.canal]||"var(--muted)",border:`1px solid ${CANAL_COLOR[c.canal]||"var(--border)"}40`}}>{c.canal}</span>
+                              <span style={{fontSize:"0.62rem",color:"var(--muted)"}}>{c.ultimo_mensaje_at?new Date(c.ultimo_mensaje_at).toLocaleDateString("es-AR"):"—"}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* TAB ACTIVIDAD */}
+                    {perfilTab==="actividad" && (
+                      <div>
+                        <div style={{fontSize:"0.65rem",fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:"0.6rem"}}>Historial completo ({actividades?.length||0} registros)</div>
+                        {actividades?.length===0 ? <div style={{padding:"2rem",textAlign:"center",color:"var(--muted)",fontSize:"0.78rem"}}><i className="bi bi-journal-text" style={{fontSize:"1.5rem",display:"block",marginBottom:6}} />Sin actividades registradas</div>
+                        : actividades.map((a,i)=>(
+                          <div key={a.id} style={{display:"flex",gap:"0.65rem",padding:"0.6rem 0",borderBottom:"1px solid var(--border)"}}>
+                            <div style={{width:28,height:28,borderRadius:7,background:"var(--bg)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                              <i className={`bi ${TIPO_ACT[a.tipo]?.icon||"bi-dot"}`} style={{color:TIPO_ACT[a.tipo]?.color,fontSize:"0.82rem"}} />
+                            </div>
+                            <div style={{flex:1}}>
+                              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                                <span style={{fontSize:"0.7rem",fontWeight:700,color:TIPO_ACT[a.tipo]?.color}}>{TIPO_ACT[a.tipo]?.label||a.tipo}</span>
+                                {a.lead_nombre && <span style={{fontSize:"0.67rem",color:"var(--accent)"}}>→ {a.lead_nombre}</span>}
+                              </div>
+                              {a.descripcion && <div style={{fontSize:"0.78rem",color:"var(--text)",lineHeight:1.4}}>{a.descripcion}</div>}
+                              {a.proxima_accion && <div style={{fontSize:"0.67rem",color:"var(--em-d)",marginTop:2}}>Próxima acción: {a.proxima_accion}</div>}
+                              <div style={{fontSize:"0.65rem",color:"var(--muted)",marginTop:2}}>{new Date(a.fecha_actividad).toLocaleDateString("es-AR",{weekday:"short",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                  </div>
+                </>
+              );
+            })() : (
+              <div style={{padding:"3rem",textAlign:"center",color:"var(--muted)"}}>
+                <i className="bi bi-exclamation-circle" style={{fontSize:"1.5rem",display:"block",marginBottom:8}} />
+                No se pudo cargar el perfil
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Modal editar miembro */}
