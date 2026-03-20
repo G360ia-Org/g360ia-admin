@@ -1264,7 +1264,7 @@ function ViewEquipo() {
   const [loading, setLoading] = useState(true);
   const [modalEditar, setModalEditar] = useState(false);
   const [editando, setEditando] = useState(null);
-  const [formEdit, setFormEdit] = useState({ rol:"", area:"", titulo:"", activo:1 });
+  const [formEdit, setFormEdit] = useState({ rol:"", area:"", activo:1 });
   const [saving, setSaving] = useState(false);
   const [modalPerfil, setModalPerfil] = useState(false);
   const [perfilData, setPerfilData] = useState(null);
@@ -1298,7 +1298,7 @@ function ViewEquipo() {
 
   const abrirEditar = (u) => {
     setEditando(u);
-    setFormEdit({ rol: u.rol||"", area: u.area||"", titulo: u.titulo||"", activo: u.activo });
+    setFormEdit({ rol: u.rol||"", area: u.area||"", activo: u.activo });
     setModalEditar(true);
   };
 
@@ -1410,7 +1410,6 @@ function ViewEquipo() {
                   <tr>
                     <th>Persona</th>
                     <th>Rol</th>
-                    <th>Título</th>
                     {tab === "comercial" && <><th>Leads activos</th><th>MRR generado</th><th>Tasa cierre</th></>}
                     {tab === "atencion" && <><th>Tickets abiertos</th><th>Resueltos</th><th>Satisfacción</th></>}
                     {tab === "contenido" && <><th>Último acceso</th></>}
@@ -1435,7 +1434,6 @@ function ViewEquipo() {
                           {ROL_META[u.rol]?.label || u.rol}
                         </span>
                       </td>
-                      <td style={{fontSize:"0.75rem",color:"var(--text2)"}}>{u.titulo || <span style={{color:"var(--muted)"}}>—</span>}</td>
 
                       {tab === "comercial" && <>
                         <td style={{fontSize:"0.78rem",fontWeight:600,color:"var(--blue)"}}>{u.leads_activos||0}</td>
@@ -1503,7 +1501,6 @@ function ViewEquipo() {
                       <div style={{fontSize:"0.72rem",color:"var(--muted)",marginTop:1}}>{usuario.email}</div>
                       <div style={{display:"flex",gap:6,marginTop:5,flexWrap:"wrap"}}>
                         <span className="bdg bdg-blue" style={{fontSize:"0.62rem"}}>{ROL_META[usuario.rol]?.label || usuario.rol}</span>
-                        {usuario.titulo && <span className="bdg bdg-amber" style={{fontSize:"0.62rem"}}>{usuario.titulo}</span>}
                         <span className={`bdg ${usuario.activo?"bdg-em":"bdg-red"}`} style={{fontSize:"0.62rem"}}>{usuario.activo?"Activo":"Inactivo"}</span>
                         {usuario.ultimo_acceso && <span className="bdg bdg-moon" style={{fontSize:"0.62rem"}}>Último acceso: {new Date(usuario.ultimo_acceso).toLocaleDateString("es-AR")}</span>}
                       </div>
@@ -1716,10 +1713,7 @@ function ViewEquipo() {
                 </select>
               </div>
             </div>
-            <div className="fg">
-              <label className="fl">Título / Cargo</label>
-              <input className="fi" value={formEdit.titulo} onChange={e=>fe({titulo:e.target.value})} placeholder="Ej: Vendedor Senior, CM Junior…" />
-            </div>
+
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.5rem 0",borderTop:"1px solid var(--border)"}}>
               <div>
                 <div style={{fontSize:"0.8rem",fontWeight:600}}>Estado</div>
@@ -2326,8 +2320,7 @@ function ViewSistema() {
                       <div>
                         <div style={{fontWeight:600,fontSize:"0.8rem"}}>{u.nombre||"—"}</div>
                         <div style={{fontSize:"0.67rem",color:"var(--muted)"}}>{u.email}</div>
-                        {u.titulo && <div style={{fontSize:"0.65rem",color:"var(--accent)",fontWeight:600}}>{u.titulo}</div>}
-                      </div>
+                        </div>
                     </div>
                   </td>
 
