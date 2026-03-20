@@ -6,8 +6,8 @@ import db from "../../../lib/db";
 export async function GET() {
   try {
     const [rows] = await db.query(
-      `SELECT id, nombre, email, rol, area, titulo, status, activo, creado_en, ultimo_acceso,
-              rubros_especialidad, modulos_especialidad, tasa_cierre, mrr_generado
+      SELECT id, nombre, email, rol, area, status, activo, creado_en, ultimo_acceso,
+       rubros_especialidad, modulos_especialidad, tasa_cierre, mrr_generado
        FROM usuarios
        ORDER BY creado_en DESC`
     );
