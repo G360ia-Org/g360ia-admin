@@ -485,7 +485,6 @@ const ETAPAS_FUNNEL = {
   seguimiento: { label:"Seguimiento", color:"var(--accent)",  bg:"var(--accent-pale)" },
 };
 
-const RUBROS = ["Hotel / Cabañas","Consultorio / Clínica / Spa","Salón de Eventos","Inmobiliaria","Restaurante / Gastronomía","Salón de belleza / Estética","Contador / Estudio contable","Abogado / Estudio jurídico","Gestor de seguros","Logística / Distribución","GovTech","Otro"];
 
 function OrigenPill({ fuente }) {
   const m = ORIGEN_META[fuente] || ORIGEN_META.manual;
