@@ -2,12 +2,11 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import db from "../../../lib/db";
 
-// GET — listar todos los usuarios
 export async function GET() {
   try {
     const [rows] = await db.query(
-      SELECT id, nombre, email, rol, area, status, activo, creado_en, ultimo_acceso,
-       rubros_especialidad, modulos_especialidad, tasa_cierre, mrr_generado
+      `SELECT id, nombre, email, rol, area, status, activo, creado_en, ultimo_acceso,
+              rubros_especialidad, modulos_especialidad, tasa_cierre, mrr_generado
        FROM usuarios
        ORDER BY creado_en DESC`
     );
@@ -17,10 +16,9 @@ export async function GET() {
   }
 }
 
-// PATCH — actualizar campos del usuario
 export async function PATCH(req) {
   try {
-    const { id, rol, status, activo, area, titulo } = await req.json();
+    const { id, rol, status, activo, area } = await req.json();
     if (!id) return NextResponse.json({ ok: false, error: "Falta id" }, { status: 400 });
 
     const campos = [];
@@ -29,7 +27,6 @@ export async function PATCH(req) {
     if (status !== undefined) { campos.push("status = ?"); valores.push(status); }
     if (activo !== undefined) { campos.push("activo = ?"); valores.push(activo); }
     if (area   !== undefined) { campos.push("area = ?");   valores.push(area || null); }
-    if (titulo !== undefined) { campos.push("titulo = ?"); valores.push(titulo || null); }
 
     if (campos.length === 0) return NextResponse.json({ ok: false, error: "Nada que actualizar" }, { status: 400 });
 
@@ -41,7 +38,6 @@ export async function PATCH(req) {
   }
 }
 
-// DELETE — eliminar usuario
 export async function DELETE(req) {
   try {
     const { id } = await req.json();
