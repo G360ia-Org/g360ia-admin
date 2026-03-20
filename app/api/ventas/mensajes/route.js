@@ -38,25 +38,56 @@ return NextResponse.json({ ok: true, mensajes: rows });  }
 export async function POST(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
   try {
     const body = await request.json();
     const { conversacion_id, direccion, contenido } = body;
     const enviado_por = direccion === "saliente" ? session.user.id : null;
 
+    // Guardar en DB
     const [result] = await db.query(
       `INSERT INTO ventas_mensajes (conversacion_id, direccion, contenido, enviado_por)
        VALUES (?, ?, ?, ?)`,
       [conversacion_id, direccion, contenido, enviado_por]
     );
 
-    // Actualizar ultimo_mensaje en la conversación
+    // Actualizar ultimo_mensaje
     await db.query(
       `UPDATE ventas_conversaciones 
        SET ultimo_mensaje = ?, ultimo_mensaje_at = NOW(), estado = 'en_curso'
        WHERE id = ?`,
       [contenido.substring(0, 200), conversacion_id]
     );
+
+    // Enviar por WhatsApp si es saliente
+    if (direccion === "saliente") {
+      try {
+        // Buscar teléfono de la conversación
+        const [[conv]] = await db.query(
+          `SELECT vc.contacto_telefono, wi.instance_key
+           FROM ventas_conversaciones vc
+           LEFT JOIN whatsapp_instancias wi ON wi.tenant_id IS NULL AND wi.estado = 'conectado'
+           WHERE vc.id = ? AND vc.canal = 'whatsapp'`,
+          [conversacion_id]
+        );
+
+        if (conv?.contacto_telefono && conv?.instance_key) {
+          const telefono = conv.contacto_telefono.replace(/\D/g, "");
+          await fetch(`${process.env.EVOLUTION_API_URL}/message/sendText/${conv.instance_key}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": process.env.EVOLUTION_API_KEY,
+            },
+            body: JSON.stringify({
+              number: `${telefono}@s.whatsapp.net`,
+              text: contenido,
+            }),
+          });
+        }
+      } catch (wspErr) {
+        console.warn("WhatsApp send warning:", wspErr.message);
+      }
+    }
 
     return NextResponse.json({ id: result.insertId, ok: true });
   } catch (error) {
