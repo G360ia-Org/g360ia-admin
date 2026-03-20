@@ -51,46 +51,49 @@ export async function GET(req) {
 
     // ── FUNNEL (leads tomados por etapa) ─────────────────────
     if (["todo","funnel"].includes(vista)) {
-      let q = `
-        SELECT
-          vl.*,
-          u.nombre AS vendedor_nombre,
-          vc.id    AS conversacion_id,
-          vc.canal AS conv_canal,
-          vc.ultimo_mensaje,
-          vc.ultimo_mensaje_at
-        FROM ventas_leads vl
-        LEFT JOIN usuarios u ON u.id = vl.asignado_a
-        LEFT JOIN ventas_conversaciones vc ON vc.lead_id = vl.id
-          AND vc.estado != 'cerrada'
-        WHERE vl.estado IN ('contactado','interesado','seguimiento')
-          AND vl.asignado_a IS NOT NULL
-      `;
-      const params = [];
+  let q = `
+    SELECT
+      vl.id, vl.nombre, vl.empresa, vl.telefono, vl.email,
+      vl.rubro_interes, vl.plan_interes, vl.fuente,
+      vl.estado AS estado,
+      vl.notas, vl.sitio_web, vl.instagram, vl.facebook, vl.ubicacion,
+      vl.asignado_a, vl.actualizado_en,
+      DATEDIFF(NOW(), vl.fecha_ultimo_contacto) AS dias_sin_contacto,
+      u.nombre AS vendedor_nombre,
+      vc.id    AS conversacion_id,
+      vc.canal AS conv_canal,
+      vc.ultimo_mensaje,
+      vc.ultimo_mensaje_at
+    FROM ventas_leads vl
+    LEFT JOIN usuarios u ON u.id = vl.asignado_a
+    LEFT JOIN ventas_conversaciones vc ON vc.lead_id = vl.id
+      AND vc.estado != 'cerrada'
+    WHERE vl.estado IN ('contactado','interesado','seguimiento')
+      AND vl.asignado_a IS NOT NULL
+  `;
+  const params = [];
 
-      // Vendedor solo ve los suyos
-      if (!esAdmin) {
-        q += ` AND vl.asignado_a = ?`;
-        params.push(usuario_id);
-      }
+  if (!esAdmin) {
+    q += ` AND vl.asignado_a = ?`;
+    params.push(usuario_id);
+  }
 
-      q += ` ORDER BY vl.actualizado_en DESC`;
+  q += ` ORDER BY vl.actualizado_en DESC`;
 
-      const [funnel] = await db.query(q, params);
+  const [funnel] = await db.query(q, params);
 
-      // Agrupar por etapa
-      const etapas = {
-        contactado:  [],
-        interesado:  [],
-        seguimiento: [],
-      };
-      funnel.forEach(l => {
-        if (etapas[l.estado]) etapas[l.estado].push(l);
-      });
+  const etapas = {
+    contactado:  [],
+    interesado:  [],
+    seguimiento: [],
+  };
+  funnel.forEach(l => {
+    if (etapas[l.estado]) etapas[l.estado].push(l);
+  });
 
-      resultado.funnel = etapas;
-      resultado.funnel_total = funnel.length;
-    }
+  resultado.funnel = etapas;
+  resultado.funnel_total = funnel.length;
+}
 
     // ── CONVERSACIONES ───────────────────────────────────────
     if (["todo","conversaciones"].includes(vista)) {
