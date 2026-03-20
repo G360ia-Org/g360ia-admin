@@ -32,8 +32,7 @@ export async function GET(request) {
     return NextResponse.json(rows);
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Error al obtener mensajes" }, { status: 500 });
-  }
+return NextResponse.json({ ok: true, mensajes: rows });  }
 }
 
 export async function POST(request) {
