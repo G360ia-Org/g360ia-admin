@@ -7,5 +7,6 @@ export const config = {
     "/perfil/:path*",
     "/bienvenido/:path*",
     "/portal/dashboard/:path*",
+    "/portal/bienvenido/:path*",
   ],
 };
