@@ -2,7 +2,7 @@
 // Genera la URL de OAuth de Google para Gmail + Calendar
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 
 export async function GET(request) {
   const session = await getServerSession(authOptions);
