@@ -25,11 +25,6 @@ function parseDispositivo(ua = "") {
 const handler = NextAuth({
   trustHost: true,
 
-  // ── JWT strategy para que los datos persistan en el token ──
-  session: {
-    strategy: "jwt",
-  },
-
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -62,7 +57,6 @@ const handler = NextAuth({
             service: "gmail",
             auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
           });
-
           await transporter.sendMail({
             from: `"Gestión 360 iA" <${process.env.EMAIL_USER}>`,
             to: process.env.EMAIL_USER,
@@ -72,25 +66,11 @@ const handler = NextAuth({
                 <div style="background:#fff;border-radius:16px;overflow:hidden;border:1px solid #E5E7EB;">
                   <div style="background:#506886;padding:28px 32px;text-align:center;">
                     <div style="font-size:20px;font-weight:700;color:#fff;">Gestión 360 <span style="color:#F0C878;">iA</span></div>
-                    <div style="font-size:11px;color:rgba(255,255,255,.6);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px;">Panel de administración</div>
                   </div>
-                  <div style="padding:28px 32px;">
-                    <div style="display:inline-block;background:#EDF1F6;color:#506886;border:1px solid #C2CFD9;border-radius:999px;font-size:13px;font-weight:600;padding:6px 18px;margin-bottom:16px;">
-                      🔔 Nueva solicitud de acceso
-                    </div>
-                    <h1 style="font-size:20px;font-weight:700;color:#1F2937;margin:0 0 16px;">Alguien quiere ingresar al panel</h1>
-                    <div style="background:#F4F7FA;border:1px solid #E5E7EB;border-radius:12px;padding:18px 20px;margin-bottom:24px;">
-                      <table style="width:100%;font-size:13px;border-collapse:collapse;">
-                        <tr><td style="color:#9CA3AF;font-weight:600;padding:4px 0;width:100px;">Nombre</td><td style="color:#1F2937;font-weight:600;padding:4px 0;">${user.name}</td></tr>
-                        <tr><td style="color:#9CA3AF;font-weight:600;padding:4px 0;">Email</td><td style="color:#1F2937;padding:4px 0;">${user.email}</td></tr>
-                      </table>
-                    </div>
-                    <div style="text-align:center;">
-                      <a href="https://admin.gestion360ia.com.ar/dashboard" style="display:inline-block;background:#506886;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:13px 32px;border-radius:10px;">Ir al panel para aprobar →</a>
-                    </div>
-                  </div>
-                  <div style="background:#F9FAFB;border-top:1px solid #F3F4F6;padding:16px 32px;text-align:center;">
-                    <p style="font-size:12px;color:#9CA3AF;margin:0;">Este correo fue enviado automáticamente por Gestión 360 iA.</p>
+                  <div style="padding:28px 32px;text-align:center;">
+                    <h1 style="font-size:20px;font-weight:700;color:#1F2937;margin:0 0 16px;">Nueva solicitud de acceso</h1>
+                    <p style="color:#6B7280;">${user.name} — ${user.email}</p>
+                    <a href="https://admin.gestion360ia.com.ar/dashboard" style="display:inline-block;background:#506886;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:13px 32px;border-radius:10px;">Ir al panel →</a>
                   </div>
                 </div>
               </div>
@@ -104,17 +84,10 @@ const handler = NextAuth({
       }
 
       const dbUser = rows[0];
+      if (dbUser.status !== "approved") return "/pendiente";
 
-      if (dbUser.status !== "approved") {
-        return "/pendiente";
-      }
-
-      // Registrar sesión
       try {
-        await db.query(
-          `UPDATE usuarios SET ultimo_acceso = NOW() WHERE id = ?`,
-          [dbUser.id]
-        );
+        await db.query(`UPDATE usuarios SET ultimo_acceso = NOW() WHERE id = ?`, [dbUser.id]);
         await db.query(
           `INSERT INTO sesiones_log (usuario_id, ip, user_agent, dispositivo) VALUES (?, ?, ?, ?)`,
           [dbUser.id, null, profile?.sub ?? "", parseDispositivo("")]
@@ -126,33 +99,22 @@ const handler = NextAuth({
       return true;
     },
 
-    // ── JWT: guardar id y rol en el token ───────────────────
-    async jwt({ token, user, account }) {
-      // Solo en el primer login (cuando user existe)
-      if (account && user) {
+    // ── Session: siempre lee de DB para garantizar datos frescos ──
+    async session({ session }) {
+      if (session?.user?.email) {
         try {
           const [rows] = await db.query(
             "SELECT id, rol, status FROM usuarios WHERE email = ?",
-            [user.email]
+            [session.user.email]
           );
           if (rows.length > 0) {
-            token.id     = rows[0].id;
-            token.rol    = rows[0].rol;
-            token.status = rows[0].status;
+            session.user.id     = rows[0].id;
+            session.user.rol    = rows[0].rol;
+            session.user.status = rows[0].status;
           }
         } catch (err) {
-          console.error("JWT callback error:", err);
+          console.error("Session callback DB error:", err);
         }
-      }
-      return token;
-    },
-
-    // ── Session: leer desde el token ────────────────────────
-    async session({ session, token }) {
-      if (session?.user) {
-        session.user.id     = token.id     || null;
-        session.user.rol    = token.rol    || null;
-        session.user.status = token.status || null;
       }
       return session;
     },
