@@ -1,7 +1,7 @@
 // app/api/integraciones/google/disconnect/route.js
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import db from "@/lib/db";
 
 export async function DELETE(request) {
