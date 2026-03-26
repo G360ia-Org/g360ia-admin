@@ -56,6 +56,7 @@ export default function DashboardPage() {
   const [menuPos, setMenuPos] = useState({ bottom: 0, left: 0, width: 0 });
   const [theme, setTheme]             = useState("slate");
   const [showPersonalizar, setShowPersonalizar] = useState(false);
+  const [showRubroService, setShowRubroService] = useState(false);
   const [stats, setStats] = useState({
     clientes_activos: null, conv_sin_asignar: null,
     tickets_urgentes: null, usuarios_pendientes: null,
@@ -208,6 +209,10 @@ export default function DashboardPage() {
                     {!esVendedor && <DropdownItem icon="bi-eye" label="Ver como cliente" onClick={()=>setMenuUsuario(false)} muted />}
                     <DropdownItem icon="bi-palette" label="Personalizar" onClick={()=>{setMenuUsuario(false);setShowPersonalizar(true);}} />
                   </div>
+                  <div style={{borderTop:"1px solid var(--border)",padding:"0.3rem 0 0.15rem"}}>
+                    <div style={{fontSize:"0.6rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--muted)",padding:"0.3rem 0.85rem 0.15rem"}}>Documentos</div>
+                    <DropdownItem icon="bi-file-earmark-text" label="Rubro Service" onClick={()=>{setMenuUsuario(false);setShowRubroService(true);}} />
+                  </div>
                   <div style={{borderTop:"1px solid var(--border)",padding:"0.3rem 0"}}>
                     <DropdownItem icon="bi-box-arrow-right" label="Cerrar sesión" onClick={()=>signOut({callbackUrl:"/"})} danger />
                   </div>
@@ -252,6 +257,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ── MODAL RUBRO SERVICE ── */}
+      {showRubroService && <ModalRubroService onClose={()=>setShowRubroService(false)} />}
 
       {/* ── MODAL PERSONALIZAR ── */}
       {showPersonalizar && (
@@ -614,6 +622,368 @@ function DropdownItem({ icon, label, onClick, danger, muted }) {
       onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
       <i className={`bi ${icon}`} style={{fontSize:"0.88rem",width:16,textAlign:"center"}} />
       {label}
+    </div>
+  );
+}
+
+// ── Modal Rubro Service (tarifario servicio técnico) ─────────────
+const RUBRO_SERVICE_HTML = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestión 360 iA — Planes Servicio Técnico</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Fraunces:ital,wght@0,300;0,600;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green: #1A7A4A; --green-light: #E8F5EE; --green-dark: #0f5233;
+    --gold: #B08A55; --gold-light: #F7F0E6; --purple: #534AB7; --purple-light: #EDE9FE;
+    --amber: #854F0B; --amber-light: #FEF3C7;
+    --bg: #F0F4F0; --surface: #FFFFFF; --text: #1a1a1a; --text-muted: #6b7280;
+    --text-subtle: #9ca3af; --border: rgba(0,0,0,0.08); --border-strong: rgba(0,0,0,0.15);
+    --radius: 16px; --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 40px 24px 60px; -webkit-font-smoothing: antialiased; }
+  .page { max-width: 1060px; margin: 0 auto; }
+  .header { margin-bottom: 44px; }
+  .brand-row { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+  .brand-mark { width: 32px; height: 32px; background: var(--green); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .brand-mark svg { width: 18px; height: 18px; color: white; }
+  .brand-name { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 600; color: var(--green); letter-spacing: -0.01em; }
+  .header-rubro { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 5px 14px; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 14px; }
+  .header-rubro-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; }
+  .header h1 { font-family: 'Fraunces', serif; font-size: clamp(28px, 4vw, 44px); font-weight: 300; line-height: 1.1; letter-spacing: -0.03em; color: var(--text); margin-bottom: 10px; }
+  .header h1 em { font-style: italic; color: var(--green); }
+  .header-sub { font-size: 15px; color: var(--text-muted); font-weight: 400; max-width: 480px; line-height: 1.6; }
+  .billing-row { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }
+  .billing-label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+  .billing-label.active { color: var(--text); }
+  .toggle-track { width: 44px; height: 24px; background: var(--green); border-radius: 12px; cursor: pointer; position: relative; border: none; transition: background .2s; }
+  .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: white; border-radius: 50%; transition: transform .2s; pointer-events: none; }
+  .toggle-track.off { background: #d1d5db; }
+  .toggle-track.off .toggle-thumb { transform: translateX(0); }
+  .toggle-track.on .toggle-thumb { transform: translateX(20px); }
+  .billing-save { background: var(--green-light); color: var(--green); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.02em; }
+  .plans-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 44px; }
+  .plan-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 20px; display: flex; flex-direction: column; position: relative; transition: transform .2s, box-shadow .2s; }
+  .plan-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .plan-card.featured { border: 2px solid var(--green); background: #FAFCFB; }
+  .featured-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--green); color: white; font-size: 10px; font-weight: 600; padding: 4px 14px; border-radius: 20px; white-space: nowrap; letter-spacing: 0.04em; text-transform: uppercase; }
+  .plan-tier { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 6px; }
+  .tier-free { color: #6b7280; } .tier-pro { color: var(--green); } .tier-biz { color: var(--purple); } .tier-ia { color: var(--amber); }
+  .plan-price { font-family: 'Fraunces', serif; font-size: 42px; font-weight: 300; line-height: 1; color: var(--text); letter-spacing: -0.03em; }
+  .plan-price .currency { font-size: 18px; vertical-align: top; margin-top: 8px; display: inline-block; font-weight: 400; color: var(--text-muted); }
+  .plan-price .period { font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text-muted); font-weight: 400; margin-left: 2px; }
+  .plan-price-annual { font-size: 11px; color: var(--green); font-weight: 500; min-height: 16px; margin-bottom: 2px; }
+  .plan-tagline { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 18px; min-height: 34px; }
+  .plan-cta { display: block; width: 100%; padding: 9px 0; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; text-align: center; cursor: pointer; border: 1.5px solid; transition: all .15s; margin-bottom: 20px; text-decoration: none; }
+  .cta-free { border-color: var(--border-strong); color: var(--text-muted); background: transparent; }
+  .cta-free:hover { background: var(--bg); }
+  .cta-pro { border-color: var(--green); background: var(--green); color: white; }
+  .cta-pro:hover { background: var(--green-dark); border-color: var(--green-dark); }
+  .cta-biz { border-color: var(--purple); background: var(--purple); color: white; }
+  .cta-biz:hover { background: #3d379a; border-color: #3d379a; }
+  .cta-ia { border-color: #1C3D2E; background: #1C3D2E; color: white; }
+  .cta-ia:hover { background: #0f2a1f; border-color: #0f2a1f; }
+  .plan-divider { border: none; border-top: 1px solid var(--border); margin-bottom: 16px; }
+  .mod-block { margin-bottom: 13px; }
+  .mod-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .mod-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .mod-icon svg { width: 12px; height: 12px; }
+  .mi-free { background: #f3f4f6; } .mi-free svg { color: #6b7280; }
+  .mi-pro { background: var(--green-light); } .mi-pro svg { color: var(--green); }
+  .mi-biz { background: var(--purple-light); } .mi-biz svg { color: var(--purple); }
+  .mi-ia { background: var(--amber-light); } .mi-ia svg { color: var(--amber); }
+  .mod-name { font-size: 11.5px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+  .mod-items { padding-left: 32px; display: flex; flex-direction: column; gap: 4px; }
+  .feat-item { display: flex; align-items: flex-start; gap: 7px; font-size: 11px; color: var(--text); line-height: 1.4; }
+  .feat-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .dot-free { background: #9ca3af; } .dot-pro { background: var(--green); } .dot-biz { background: var(--purple); } .dot-ia { background: var(--amber); }
+  .not-section { margin-top: 4px; }
+  .not-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text-subtle); margin-bottom: 4px; padding-left: 32px; }
+  .feat-item.muted { color: var(--text-subtle); }
+  .feat-item.muted .feat-dot { background: #e5e7eb; }
+  .credit-note { margin-top: 10px; background: var(--amber-light); border-radius: 8px; padding: 8px 10px; font-size: 11px; color: var(--amber); line-height: 1.5; font-weight: 500; }
+  .infra-section { margin-bottom: 36px; }
+  .infra-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--text-subtle); margin-bottom: 10px; }
+  .infra-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .infra-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .infra-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text-subtle); margin-bottom: 5px; }
+  .infra-cost { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+  .infra-detail { font-size: 10.5px; color: var(--text-muted); line-height: 1.4; margin-bottom: 7px; }
+  .infra-margin { display: flex; justify-content: space-between; align-items: center; padding-top: 7px; border-top: 1px solid var(--border); }
+  .infra-margin-label { font-size: 10px; color: var(--text-subtle); }
+  .infra-margin-val { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; color: var(--green); }
+  .footer { display: flex; align-items: center; justify-content: space-between; padding-top: 20px; border-top: 1px solid var(--border); }
+  .footer-note { font-size: 11.5px; color: var(--text-subtle); }
+  .footer-tag { font-family: 'DM Mono', monospace; font-size: 10.5px; color: var(--text-subtle); }
+  @media (max-width: 860px) { .plans-grid, .infra-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 520px) { .plans-grid, .infra-grid { grid-template-columns: 1fr; } body { padding: 24px 14px 40px; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="brand-row">
+      <div class="brand-mark"><svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="white" stroke-width="1.5"/><path d="M6 9l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <span class="brand-name">Gestión 360 iA</span>
+    </div>
+    <div class="header-rubro"><span class="header-rubro-dot"></span>Rubro — Servicio técnico</div>
+    <h1>Planes para <em>talleres</em><br>que quieren escalar.</h1>
+    <p class="header-sub">Desde el técnico unipersonal hasta la cadena de talleres. Cada plan incluye los módulos que realmente necesitás.</p>
+  </div>
+  <div class="billing-row">
+    <span class="billing-label active" id="lbl-monthly">Mensual</span>
+    <button class="toggle-track on" id="billing-toggle" onclick="toggleBilling()"><span class="toggle-thumb"></span></button>
+    <span class="billing-label" id="lbl-annual">Anual</span>
+    <span class="billing-save">2 meses gratis</span>
+  </div>
+  <div class="plans-grid">
+    <!-- FREE -->
+    <div class="plan-card">
+      <div class="plan-tier tier-free">Free</div>
+      <div class="plan-price">$0</div>
+      <div class="plan-price-annual"></div>
+      <div class="plan-tagline">Para arrancar sin compromiso. Sin vencimiento.</div>
+      <a href="#" class="plan-cta cta-free">Empezar gratis</a>
+      <hr class="plan-divider">
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-free"><svg viewBox="0 0 13 13" fill="none"><rect x="1" y="2" width="11" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4 5.5h5M4 7.5h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div><span class="mod-name">OT Manager</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-free"></span>OTs ilimitadas con QR</div>
+          <div class="feat-item"><span class="feat-dot dot-free"></span>7 estados de seguimiento</div>
+          <div class="feat-item"><span class="feat-dot dot-free"></span>Presupuestos y remitos PDF</div>
+        </div>
+      </div>
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-free"><svg viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="4.5" r="2.2" stroke="currentColor" stroke-width="1.2"/><path d="M2 11c0-2.5 2-4.5 4.5-4.5S11 8.5 11 11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div><span class="mod-name">Clientes</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-free"></span>Ficha de cliente</div>
+          <div class="feat-item"><span class="feat-dot dot-free"></span>Historial de equipos</div>
+        </div>
+      </div>
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-free"><svg viewBox="0 0 13 13" fill="none"><rect x="1.5" y="3" width="10" height="7" rx="1.2" stroke="currentColor" stroke-width="1.2"/><path d="M1.5 6h10" stroke="currentColor" stroke-width="1.2"/></svg></div><span class="mod-name">Cobros y Facturación</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-free"></span>Cobro online MercadoPago</div>
+          <div class="feat-item"><span class="feat-dot dot-free"></span>Factura PDF genérica</div>
+          <div class="feat-item"><span class="feat-dot dot-free"></span>Inventario de repuestos</div>
+        </div>
+      </div>
+      <div class="not-section">
+        <div class="not-label">No incluye</div>
+        <div class="mod-items">
+          <div class="feat-item muted"><span class="feat-dot"></span>WhatsApp</div>
+          <div class="feat-item muted"><span class="feat-dot"></span>ARCA / factura electrónica</div>
+          <div class="feat-item muted"><span class="feat-dot"></span>Más de 1 usuario</div>
+        </div>
+      </div>
+    </div>
+    <!-- PRO -->
+    <div class="plan-card featured">
+      <span class="featured-badge">Más elegido</span>
+      <div class="plan-tier tier-pro">Pro</div>
+      <div class="plan-price" id="price-pro"><span class="currency">$</span><span class="amount" data-monthly="39" data-annual="33">39</span><span class="period">/mes</span></div>
+      <div class="plan-price-annual" id="annual-pro"></div>
+      <div class="plan-tagline">El taller completo. WhatsApp activo y seguimiento en tu web.</div>
+      <a href="#" class="plan-cta cta-pro">Empezar con Pro</a>
+      <hr class="plan-divider">
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-pro"><svg viewBox="0 0 13 13" fill="none"><path d="M10 3C9 1.5 7 1.5 6 2.5L2.5 6c-1 1-.5 3 1 3.5l1 .5 4.5-4.5.5 1C10 8 11 6 10 3z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg></div><span class="mod-name">WhatsApp Center</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-pro"></span>1 número activo</div>
+          <div class="feat-item"><span class="feat-dot dot-pro"></span>Notif. automáticas de estado</div>
+          <div class="feat-item"><span class="feat-dot dot-pro"></span>Bot FAQ (planilla simple)</div>
+        </div>
+      </div>
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-pro"><svg viewBox="0 0 13 13" fill="none"><circle cx="3" cy="6.5" r="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="10" cy="6.5" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 6.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M6.5 2.5v1.5M6.5 9.5V11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div><span class="mod-name">Track &amp; Follow</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-pro"></span>Widget en tu web (1 línea de código)</div>
+          <div class="feat-item"><span class="feat-dot dot-pro"></span>Consulta por número de OT</div>
+        </div>
+      </div>
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-pro"><svg viewBox="0 0 13 13" fill="none"><path d="M2.5 4h8M2.5 7h5M2.5 10h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div><span class="mod-name">Equipo Técnico</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-pro"></span>Asignación de técnicos a OTs</div>
+          <div class="feat-item"><span class="feat-dot dot-pro"></span>Hasta 5 usuarios</div>
+        </div>
+      </div>
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-pro"><svg viewBox="0 0 13 13" fill="none"><path d="M2 10.5L3.5 4 6.5 8 8.5 5l2 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="mod-name">CRM Pro</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-pro"></span>Funnel visual de clientes</div>
+          <div class="feat-item"><span class="feat-dot dot-pro"></span>Conversaciones multi-canal</div>
+        </div>
+      </div>
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-pro"><svg viewBox="0 0 13 13" fill="none"><path d="M6.5 1.5v10M4 4l2.5-2.5L9 4M4 9l2.5 2.5L9 9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="mod-name">Facturación ARCA</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-pro"></span>Factura electrónica Argentina</div>
+          <div class="feat-item"><span class="feat-dot dot-pro"></span>CAE automático</div>
+        </div>
+      </div>
+      <div class="not-section">
+        <div class="not-label">No incluye</div>
+        <div class="mod-items">
+          <div class="feat-item muted"><span class="feat-dot"></span>Multi-sucursal</div>
+          <div class="feat-item muted"><span class="feat-dot"></span>Proveedores</div>
+          <div class="feat-item muted"><span class="feat-dot"></span>IA avanzada</div>
+        </div>
+      </div>
+    </div>
+    <!-- BUSINESS -->
+    <div class="plan-card">
+      <div class="plan-tier tier-biz">Business</div>
+      <div class="plan-price" id="price-biz"><span class="currency">$</span><span class="amount" data-monthly="79" data-annual="66">79</span><span class="period">/mes</span></div>
+      <div class="plan-price-annual" id="annual-biz"></div>
+      <div class="plan-tagline">Para el taller que crece. Multi-sucursal y finanzas completas.</div>
+      <a href="#" class="plan-cta cta-biz">Activar Business</a>
+      <hr class="plan-divider">
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-biz"><svg viewBox="0 0 13 13" fill="none"><rect x="1" y="5.5" width="4.5" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="7.5" y="5.5" width="4.5" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M3.2 5.5V4C3.2 2.7 4.5 1.5 6.5 1.5S9.8 2.7 9.8 4v1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div><span class="mod-name">Multi-sede</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-biz"></span>Varias sucursales, un solo panel</div>
+          <div class="feat-item"><span class="feat-dot dot-biz"></span>Usuarios ilimitados</div>
+        </div>
+      </div>
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-biz"><svg viewBox="0 0 13 13" fill="none"><path d="M6.5 1.5C4.5 1.5 2 3 2 5.5c0 3.5 4.5 6 4.5 6s4.5-2.5 4.5-6C11 3 8.5 1.5 6.5 1.5z" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="5.5" r="1.5" stroke="currentColor" stroke-width="1.1"/></svg></div><span class="mod-name">Proveedores</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-biz"></span>Gestión de proveedores</div>
+          <div class="feat-item"><span class="feat-dot dot-biz"></span>Catálogo de repuestos por proveedor</div>
+          <div class="feat-item"><span class="feat-dot dot-biz"></span>Órdenes de compra</div>
+        </div>
+      </div>
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-biz"><svg viewBox="0 0 13 13" fill="none"><path d="M2 10.5L3.5 4 6.5 8 8.5 5l2 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 10.5h11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div><span class="mod-name">Finanzas</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-biz"></span>Reportes financieros</div>
+          <div class="feat-item"><span class="feat-dot dot-biz"></span>Caja y márgenes por OT</div>
+        </div>
+      </div>
+      <div class="not-section">
+        <div class="not-label">No incluye</div>
+        <div class="mod-items">
+          <div class="feat-item muted"><span class="feat-dot"></span>Bot Agente IA</div>
+          <div class="feat-item muted"><span class="feat-dot"></span>Predicción de stock</div>
+          <div class="feat-item muted"><span class="feat-dot"></span>Tracking GPS</div>
+          <div class="feat-item muted"><span class="feat-dot"></span>Skills IA reactivas</div>
+        </div>
+      </div>
+    </div>
+    <!-- PLAN IA -->
+    <div class="plan-card">
+      <div class="plan-tier tier-ia">Plan IA</div>
+      <div class="plan-price" id="price-ia"><span class="currency">$</span><span class="amount" data-monthly="149" data-annual="124">149</span><span class="period">/mes</span></div>
+      <div class="plan-price-annual" id="annual-ia"></div>
+      <div class="plan-tagline">La IA trabaja por vos antes de que lo hagas.</div>
+      <a href="#" class="plan-cta cta-ia">Activar Plan IA</a>
+      <hr class="plan-divider">
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-ia"><svg viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 6.5c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="6.5" cy="6.5" r=".8" fill="currentColor"/></svg></div><span class="mod-name">Agente IA</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-ia"></span>Bot que conoce el negocio</div>
+          <div class="feat-item"><span class="feat-dot dot-ia"></span>Carga de PDFs, docs, catálogos</div>
+          <div class="feat-item"><span class="feat-dot dot-ia"></span>Responde consultas complejas</div>
+          <div class="feat-item"><span class="feat-dot dot-ia"></span>Dashboard de consumo de tokens</div>
+        </div>
+      </div>
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-ia"><svg viewBox="0 0 13 13" fill="none"><path d="M2 10.5L5 3.5l2 4 1.5-2 2.5 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="mod-name">Predictor de Stock</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-ia"></span>Predice repuestos por tipo de OT</div>
+          <div class="feat-item"><span class="feat-dot dot-ia"></span>Alerta de bajo stock</div>
+          <div class="feat-item"><span class="feat-dot dot-ia"></span>Sugiere proveedor automáticamente</div>
+        </div>
+      </div>
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-ia"><svg viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="5" r="3.2" stroke="currentColor" stroke-width="1.2"/><path d="M6.5 8.2v3M4.5 11h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div><span class="mod-name">Maia Skills</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-ia"></span>Asignación automática de OTs</div>
+          <div class="feat-item"><span class="feat-dot dot-ia"></span>Sugerencias reactivas en tiempo real</div>
+        </div>
+      </div>
+      <div class="mod-block">
+        <div class="mod-header"><div class="mod-icon mi-ia"><svg viewBox="0 0 13 13" fill="none"><path d="M6.5 1.5C4 1.5 2 3.2 2 5.5c0 3.5 4.5 6.5 4.5 6.5s4.5-3 4.5-6.5C11 3.2 9 1.5 6.5 1.5z" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 5.5l1.5 1.5 2.5-2.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="mod-name">GPS Domicilio</span></div>
+        <div class="mod-items">
+          <div class="feat-item"><span class="feat-dot dot-ia"></span>Tracking en tiempo real</div>
+          <div class="feat-item"><span class="feat-dot dot-ia"></span>Aviso "técnico en camino" por WhatsApp</div>
+        </div>
+      </div>
+      <div class="credit-note">+ Créditos de tokens prepagos para el Agente IA — recargás cuando querés, como crédito de celular.</div>
+    </div>
+  </div>
+  <div class="infra-section">
+    <div class="infra-title">Estructura de costos de infraestructura</div>
+    <div class="infra-grid">
+      <div class="infra-card"><div class="infra-label">Infra / tenant Pro</div><div class="infra-cost">~$1.90</div><div class="infra-detail">Evolution API $1.30 · Claude $0.45 · DB + Redis $0.15</div><div class="infra-margin"><span class="infra-margin-label">Margen bruto</span><span class="infra-margin-val">95%</span></div></div>
+      <div class="infra-card"><div class="infra-label">ARCA / AfipSDK</div><div class="infra-cost">~$0.25</div><div class="infra-detail">Plan Growth $80/mes ÷ 100 CUITs a escala</div><div class="infra-margin"><span class="infra-margin-label">Arranque (10 tenants)</span><span class="infra-margin-val">$2.50</span></div></div>
+      <div class="infra-card"><div class="infra-label">GPS Google Maps</div><div class="infra-cost">$3–8</div><div class="infra-detail">Depende del volumen de rutas en Plan IA</div><div class="infra-margin"><span class="infra-margin-label">Margen Plan IA</span><span class="infra-margin-val">~93%</span></div></div>
+      <div class="infra-card"><div class="infra-label">Créditos IA (extra)</div><div class="infra-cost">Prepago</div><div class="infra-detail">Tokens del Agente IA — margen ~60–70% sobre costo Claude</div><div class="infra-margin"><span class="infra-margin-label">Línea adicional</span><span class="infra-margin-val">activa</span></div></div>
+    </div>
+  </div>
+  <div class="footer">
+    <span class="footer-note">Todos los planes incluyen onboarding guiado · Sin permanencia</span>
+    <span class="footer-tag">v1.0 · Servicio Técnico · marzo 2026</span>
+  </div>
+</div>
+<script>
+  let isAnnual = false;
+  const plans = [{id:'pro',monthly:39,annual:33},{id:'biz',monthly:79,annual:66},{id:'ia',monthly:149,annual:124}];
+  function toggleBilling() {
+    isAnnual = !isAnnual;
+    const track = document.getElementById('billing-toggle');
+    const lblMonthly = document.getElementById('lbl-monthly');
+    const lblAnnual = document.getElementById('lbl-annual');
+    track.className = 'toggle-track ' + (isAnnual ? 'on' : 'off');
+    lblMonthly.classList.toggle('active', !isAnnual);
+    lblAnnual.classList.toggle('active', isAnnual);
+    plans.forEach(p => {
+      const priceEl = document.querySelector('#price-' + p.id + ' .amount');
+      const annualEl = document.getElementById('annual-' + p.id);
+      const val = isAnnual ? p.annual : p.monthly;
+      priceEl.textContent = val;
+      annualEl.textContent = isAnnual ? 'USD ' + (p.annual * 12) + ' facturado anualmente' : '';
+    });
+  }
+<\/script>
+</body>
+</html>`;
+
+function ModalRubroService({ onClose }) {
+  return (
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}}
+    >
+      <div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:1120,height:"90vh",display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 24px 64px rgba(0,0,0,0.22)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.75rem 1.1rem",borderBottom:"1px solid #E5E7EB",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+            <i className="bi bi-file-earmark-text" style={{fontSize:"0.9rem",color:"#506886"}} />
+            <span style={{fontSize:"0.85rem",fontWeight:700,color:"#1F2937"}}>Documentos</span>
+            <i className="bi bi-chevron-right" style={{fontSize:"0.65rem",color:"#9CA3AF"}} />
+            <span style={{fontSize:"0.85rem",fontWeight:600,color:"#506886"}}>Rubro Service</span>
+          </div>
+          <div
+            onClick={onClose}
+            style={{width:28,height:28,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#9CA3AF",fontSize:"0.9rem",transition:"background .12s"}}
+            onMouseEnter={e=>e.currentTarget.style.background="#F2F4F6"}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+          >
+            <i className="bi bi-x-lg" />
+          </div>
+        </div>
+        <iframe
+          srcDoc={RUBRO_SERVICE_HTML}
+          style={{flex:1,border:"none",width:"100%"}}
+          title="Rubro Service — Tarifario Servicio Técnico"
+        />
+      </div>
     </div>
   );
 }
