@@ -256,7 +256,9 @@ export default function DashboardPage() {
         .collapsed .ni-txt { opacity:0; width:0; }
         #sb.collapsed .ni { padding:0; margin:2px 0; gap:0; justify-content:center; border-radius:0; }
         #sb.collapsed .ni-ic { width:52px; margin:0; display:flex; align-items:center; justify-content:center; padding:0.46rem 0; }
-        #sb.collapsed .ni-badge { opacity:0; width:0; padding:0; overflow:hidden; }
+        #sb.collapsed .ni-txt { display:none; }
+        #sb.collapsed .ni-badge { display:none; }
+        #sb.collapsed .ni-soon { display:none; }
         #sb.collapsed .sb-sec { opacity:0; height:0; padding:0; overflow:hidden; }
         #sb.collapsed .sb-divider { margin:0.5rem 10px; }
         #sb.collapsed .sb-logo { justify-content:center; padding:0; }
@@ -421,7 +423,7 @@ function NavItem({ id, icon, iconSvg, label, active, onClick, badge, badgeClass,
       </span>
       <span className="ni-txt">{label}</span>
       {incoming && !badge && (
-        <span style={{background:"rgba(176,138,85,.18)",color:"#C8A472",fontSize:"0.52rem",fontWeight:700,padding:"1px 6px",borderRadius:9,flexShrink:0,letterSpacing:"0.04em",textTransform:"uppercase",border:"1px solid rgba(176,138,85,.3)"}}>soon</span>
+        <span className="ni-soon" style={{background:"rgba(176,138,85,.18)",color:"#C8A472",fontSize:"0.52rem",fontWeight:700,padding:"1px 6px",borderRadius:9,flexShrink:0,letterSpacing:"0.04em",textTransform:"uppercase",border:"1px solid rgba(176,138,85,.3)"}}>soon</span>
       )}
       {badge && <span className={`ni-badge${badgeClass?" "+badgeClass:""}`}>{badge}</span>}
     </div>
