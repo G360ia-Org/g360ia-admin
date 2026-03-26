@@ -26,11 +26,13 @@ export default function DashboardPage() {
   const [view, setView]   = useState("dashboard");
   const [collapsed, setCollapsed] = useState(false);
   const [menuUsuario, setMenuUsuario] = useState(false);
+  const [menuPos, setMenuPos] = useState({ bottom: 0, left: 0, width: 0 });
   const [stats, setStats] = useState({
     clientes_activos: null, conv_sin_asignar: null,
     tickets_urgentes: null, usuarios_pendientes: null,
   });
   const menuRef = useRef(null);
+  const footRef = useRef(null);
 
   const nav = (id) => setView(id);
   const userName    = session?.user?.name || "Admin";
@@ -134,10 +136,16 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="sb-foot">
+          <div className="sb-foot" ref={footRef}>
             <div ref={menuRef} style={{position:"relative"}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.44rem 0.55rem",borderRadius:"var(--r-sm)"}}>
-                <div onClick={()=>setMenuUsuario(m=>!m)} style={{cursor:"pointer",flexShrink:0}}>
+                <div onClick={()=>{
+                  if (footRef.current) {
+                    const r = footRef.current.getBoundingClientRect();
+                    setMenuPos({ bottom: window.innerHeight - r.top + 6, left: r.left, width: r.width });
+                  }
+                  setMenuUsuario(m=>!m);
+                }} style={{cursor:"pointer",flexShrink:0}}>
                   {session?.user?.image
                     ? <img src={session.user.image} style={{width:28,height:28,borderRadius:"50%",objectFit:"cover"}} alt="" />
                     : <Av letra={userInitial} size={28} />
@@ -149,7 +157,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               {menuUsuario && (
-                <div style={{position:"absolute",bottom:"calc(100% + 6px)",left:0,right:0,background:"#fff",border:"1px solid var(--border)",borderRadius:"var(--r)",boxShadow:"var(--sh-md)",zIndex:100,overflow:"hidden"}}>
+                <div style={{position:"fixed",bottom:menuPos.bottom,left:menuPos.left,width:menuPos.width,background:"#fff",border:"1px solid var(--border)",borderRadius:"var(--r)",boxShadow:"var(--sh-md)",zIndex:1000,overflow:"hidden"}}>
                   <div style={{padding:"0.6rem 0.85rem 0.5rem",borderBottom:"1px solid var(--border)"}}>
                     <div style={{fontSize:"0.78rem",fontWeight:700,color:"var(--text)"}}>{userName}</div>
                     <div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}>
@@ -246,6 +254,13 @@ export default function DashboardPage() {
         .ni-txt { font-size:0.79rem; font-weight:500; color:rgba(255,255,255,.75); overflow:hidden; transition:opacity .15s,width .15s; }
         .ni.on .ni-txt { color:#fff; font-weight:600; }
         .collapsed .ni-txt { opacity:0; width:0; }
+        #sb.collapsed .ni { padding:0; margin:2px 0; gap:0; justify-content:center; border-radius:0; }
+        #sb.collapsed .ni-ic { width:52px; margin:0; display:flex; align-items:center; justify-content:center; padding:0.46rem 0; }
+        #sb.collapsed .ni-badge { opacity:0; width:0; padding:0; overflow:hidden; }
+        #sb.collapsed .sb-sec { opacity:0; height:0; padding:0; overflow:hidden; }
+        #sb.collapsed .sb-divider { margin:0.5rem 10px; }
+        #sb.collapsed .sb-logo { justify-content:center; padding:0; }
+        #sb.collapsed .sb-logo-texts { opacity:0; width:0; }
         .ni-badge { font-size:0.58rem; font-weight:700; padding:1px 5px; border-radius:9px; background:var(--sb-badge); color:#fff; flex-shrink:0; }
         .ni-badge.amber { background:#B08A55; }
         .ni-badge.red   { background:#D9534F; }
