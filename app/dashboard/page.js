@@ -2,6 +2,17 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
+import dynamic from "next/dynamic";
+
+const ViewAdminOT            = dynamic(() => import("@/components/admin-views/ViewAdminOT"),            { ssr:false });
+const ViewAdminCatalogo      = dynamic(() => import("@/components/admin-views/ViewAdminCatalogo"),      { ssr:false });
+const ViewAdminInventario    = dynamic(() => import("@/components/admin-views/ViewAdminInventario"),    { ssr:false });
+const ViewAdminVentas        = dynamic(() => import("@/components/admin-views/ViewAdminVentas"),        { ssr:false });
+const ViewAdminFacturacion   = dynamic(() => import("@/components/admin-views/ViewAdminFacturacion"),   { ssr:false });
+const ViewAdminCaja          = dynamic(() => import("@/components/admin-views/ViewAdminCaja"),          { ssr:false });
+const ViewAdminComunicaciones= dynamic(() => import("@/components/admin-views/ViewAdminComunicaciones"),{ ssr:false });
+const ViewAdminEquipo        = dynamic(() => import("@/components/admin-views/ViewAdminEquipo"),        { ssr:false });
+const ViewAdminProveedores   = dynamic(() => import("@/components/admin-views/ViewAdminProveedores"),   { ssr:false });
 
 // ── Temas de color del sidebar ────────────────────────────────────
 const THEMES = {
@@ -31,21 +42,31 @@ const THEMES = {
 };
 
 const VIEWS = {
-  dashboard:     ["Dashboard",      "Resumen general del sistema"],
-  clientes:      ["Clientes",       "Tenants registrados"],
-  crm:           ["CRM",            "Leads, funnel y conversaciones"],
-  equipo:        ["Equipo",         "Áreas y personal del equipo"],
-  soporte:       ["Soporte",        "Tickets y atención a clientes"],
-  modulos:       ["Módulos",        "Catálogo del sistema"],
-  planes:        ["Planes",         "Gestión de suscripciones"],
-  comunicaciones:["Comunicaciones", "Conversaciones con clientes"],
-  seguimiento:   ["Seguimiento",    "Tareas y recordatorios"],
-  alertas:       ["Alertas IA",     "Detecciones automáticas"],
-  integraciones: ["Integraciones",  "Conexiones externas"],
-  auditoria:     ["Auditoría",      "Registro de actividad"],
-  configuracion: ["Configuración",  "Ajustes del sistema"],
-  sistema:       ["Sistema",        "Usuarios, permisos y accesos"],
-  perfil:        ["Mi perfil",      "Configuración de tu cuenta"],
+  dashboard:      ["Dashboard",           "Resumen general del sistema"],
+  clientes:       ["Clientes",            "Tenants registrados"],
+  crm:            ["CRM",                 "Leads, funnel y conversaciones"],
+  equipo:         ["Equipo",              "Áreas y personal del equipo"],
+  soporte:        ["Soporte",             "Tickets y atención a clientes"],
+  modulos:        ["Módulos",             "Catálogo del sistema"],
+  planes:         ["Planes",              "Gestión de suscripciones"],
+  comunicaciones: ["Comunicaciones",      "Conversaciones con clientes"],
+  seguimiento:    ["Seguimiento",         "Tareas y recordatorios"],
+  alertas:        ["Alertas IA",          "Detecciones automáticas"],
+  integraciones:  ["Integraciones",       "Conexiones externas"],
+  auditoria:      ["Auditoría",           "Registro de actividad"],
+  configuracion:  ["Configuración",       "Ajustes del sistema"],
+  sistema:        ["Sistema",             "Usuarios, permisos y accesos"],
+  perfil:         ["Mi perfil",           "Configuración de tu cuenta"],
+  // ── Módulos Tenant ──
+  m_ot:           ["Órdenes de Trabajo",  "OTs de tenants"],
+  m_catalogo:     ["Catálogo",            "Productos y servicios del tenant"],
+  m_inventario:   ["Inventario",          "Stock del tenant"],
+  m_ventas:       ["Ventas",              "Comprobantes del tenant"],
+  m_facturacion:  ["Facturación ARCA",    "Facturas electrónicas"],
+  m_caja:         ["Caja",               "Cobros y caja diaria"],
+  m_comunicaciones:["Comunicaciones WA",  "WhatsApp y plantillas"],
+  m_equipo:       ["Técnicos",            "Equipo del tenant"],
+  m_proveedores:  ["Proveedores",         "Proveedores y órdenes de compra"],
 };
 
 export default function DashboardPage() {
@@ -166,6 +187,22 @@ export default function DashboardPage() {
             {!esVendedor && (
               <>
                 <div className="sb-divider" />
+                <div className="sb-sec">Módulos Tenant</div>
+                <NavItem id="m_ot"            icon="bi-tools"          label="Órdenes de Trabajo" active={view==="m_ot"}            onClick={nav} />
+                <NavItem id="m_catalogo"      icon="bi-box-seam"       label="Catálogo"           active={view==="m_catalogo"}      onClick={nav} />
+                <NavItem id="m_inventario"    icon="bi-archive"        label="Inventario"         active={view==="m_inventario"}    onClick={nav} />
+                <NavItem id="m_ventas"        icon="bi-cart3"          label="Ventas"             active={view==="m_ventas"}        onClick={nav} />
+                <NavItem id="m_facturacion"   icon="bi-receipt"        label="Facturación"        active={view==="m_facturacion"}   onClick={nav} />
+                <NavItem id="m_caja"          icon="bi-cash-stack"     label="Caja"               active={view==="m_caja"}          onClick={nav} />
+                <NavItem id="m_comunicaciones" icon="bi-whatsapp"      label="WhatsApp"           active={view==="m_comunicaciones"} onClick={nav} />
+                <NavItem id="m_equipo"        icon="bi-people-fill"    label="Técnicos"           active={view==="m_equipo"}        onClick={nav} />
+                <NavItem id="m_proveedores"   icon="bi-truck"          label="Proveedores"        active={view==="m_proveedores"}   onClick={nav} />
+              </>
+            )}
+
+            {!esVendedor && (
+              <>
+                <div className="sb-divider" />
                 <div className="sb-sec" style={{opacity:.4}}>Próximamente</div>
                 <NavItem id="comunicaciones" icon="bi-envelope"      label="Mensajes"    active={view==="comunicaciones"} onClick={nav} incoming />
                 <NavItem id="alertas"        icon="bi-bell"          label="Alertas IA"  active={view==="alertas"}        onClick={nav} incoming />
@@ -241,21 +278,31 @@ export default function DashboardPage() {
           </div>
 
           <div id="content" style={{padding: isCrmView ? "0" : "1.3rem 1.4rem"}}>
-            {view === "dashboard"      && <ViewDashboard />}
-            {view === "clientes"       && <ViewClientes />}
-            {view === "crm"            && <ViewCRM session={session} />}
-            {view === "equipo"         && <ViewEquipo />}
-            {view === "soporte"        && <ViewSoporte session={session} />}
-            {view === "modulos"        && <ViewModulos />}
-            {view === "planes"         && <ViewPlanes />}
-            {view === "comunicaciones" && <ViewComunicaciones />}
-            {view === "seguimiento"    && <ViewSeguimiento />}
-            {view === "alertas"        && <ViewAlertas />}
-            {view === "integraciones"  && <ViewIntegraciones />}
-            {view === "auditoria"      && <ViewAuditoria />}
-            {view === "configuracion"  && <ViewConfiguracion />}
-            {view === "sistema"        && <ViewSistema />}
-            {view === "perfil"         && <ViewPerfil />}
+            {view === "dashboard"       && <ViewDashboard />}
+            {view === "clientes"        && <ViewClientes />}
+            {view === "crm"             && <ViewCRM session={session} />}
+            {view === "equipo"          && <ViewEquipo />}
+            {view === "soporte"         && <ViewSoporte session={session} />}
+            {view === "modulos"         && <ViewModulos />}
+            {view === "planes"          && <ViewPlanes />}
+            {view === "comunicaciones"  && <ViewComunicaciones />}
+            {view === "seguimiento"     && <ViewSeguimiento />}
+            {view === "alertas"         && <ViewAlertas />}
+            {view === "integraciones"   && <ViewIntegraciones />}
+            {view === "auditoria"       && <ViewAuditoria />}
+            {view === "configuracion"   && <ViewConfiguracion />}
+            {view === "sistema"         && <ViewSistema />}
+            {view === "perfil"          && <ViewPerfil />}
+            {/* ── Módulos Tenant ── */}
+            {view === "m_ot"            && <ViewAdminOT />}
+            {view === "m_catalogo"      && <ViewAdminCatalogo />}
+            {view === "m_inventario"    && <ViewAdminInventario />}
+            {view === "m_ventas"        && <ViewAdminVentas />}
+            {view === "m_facturacion"   && <ViewAdminFacturacion />}
+            {view === "m_caja"          && <ViewAdminCaja />}
+            {view === "m_comunicaciones"&& <ViewAdminComunicaciones />}
+            {view === "m_equipo"        && <ViewAdminEquipo />}
+            {view === "m_proveedores"   && <ViewAdminProveedores />}
           </div>
         </div>
       </div>
@@ -1873,10 +1920,10 @@ function Cargando({ texto="Cargando..." }) {
   return <div style={{padding:"2rem",textAlign:"center",color:"var(--muted)",fontSize:"0.82rem"}}>{texto}</div>;
 }
 
-function Modal({ children, onClose }) {
+function Modal({ children, onClose, wide }) {
   return (
     <div className="modal-over" onClick={onClose}>
-      <div className="modal-box" onClick={e=>e.stopPropagation()}>{children}</div>
+      <div className="modal-box" style={wide?{maxWidth:780,width:"100%"}:undefined} onClick={e=>e.stopPropagation()}>{children}</div>
     </div>
   );
 }
@@ -2571,13 +2618,19 @@ const RUBROS    = ["Servicio Técnico"];
 const FORM_CLI  = { nombre:"", rubro:"", plan:"starter", subdominio:"", email:"", telefono:"", logo_url:"" };
 
 function ViewClientes() {
-  const [tenants, setTenants] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
-  const [modal, setModal]     = useState(false);
+  const [tenants, setTenants]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [modal, setModal]       = useState(false);
   const [editando, setEditando] = useState(null);
-  const [form, setForm]       = useState(FORM_CLI);
-  const [error, setError]     = useState("");
+  const [form, setForm]         = useState(FORM_CLI);
+  const [error, setError]       = useState("");
+  // ── Módulos ──
+  const [modalMods, setModalMods]       = useState(false);
+  const [tenantMods, setTenantMods]     = useState(null);
+  const [loadingMods, setLoadingMods]   = useState(false);
+  const [activando, setActivando]       = useState(null);
+  const [msgMod, setMsgMod]             = useState("");
 
   const cargar = async () => { setLoading(true); try { const r=await fetch("/api/tenants"); const d=await r.json(); if(d.ok) setTenants(d.tenants); } catch(_){} setLoading(false); };
   useEffect(()=>{ cargar(); },[]);
@@ -2597,6 +2650,60 @@ function ViewClientes() {
     } catch(_){ setError("Error de conexión"); }
     setSaving(false);
   };
+
+  // ── Abrir modal de módulos ─────────────────────────────────────────
+  const abrirModulos = async (t) => {
+    setModalMods(true); setTenantMods(null); setMsgMod(""); setLoadingMods(true);
+    try {
+      const r = await fetch(`/api/admin/tenant-modulos?tenant_id=${t.id}`);
+      const d = await r.json();
+      if(d.ok) setTenantMods(d);
+    } catch(_){}
+    setLoadingMods(false);
+  };
+
+  const activar = async (modulo) => {
+    if(!tenantMods) return;
+    setActivando(modulo); setMsgMod("");
+    try {
+      const r = await fetch("/api/admin/tenant-modulos",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ tenant_id: tenantMods.tenant.id, modulo })
+      });
+      const d = await r.json();
+      setMsgMod(d.ok ? d.mensaje : d.error);
+      if(d.ok) {
+        // Refrescar lista de módulos
+        const r2 = await fetch(`/api/admin/tenant-modulos?tenant_id=${tenantMods.tenant.id}`);
+        const d2 = await r2.json();
+        if(d2.ok) setTenantMods(d2);
+      }
+    } catch(_){ setMsgMod("Error de conexión"); }
+    setActivando(null);
+  };
+
+  const desactivar = async (modulo) => {
+    if(!tenantMods) return;
+    setActivando(modulo); setMsgMod("");
+    try {
+      const r = await fetch("/api/admin/tenant-modulos",{
+        method:"DELETE",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ tenant_id: tenantMods.tenant.id, modulo })
+      });
+      const d = await r.json();
+      setMsgMod(d.mensaje || d.error);
+      if(d.ok) {
+        const r2 = await fetch(`/api/admin/tenant-modulos?tenant_id=${tenantMods.tenant.id}`);
+        const d2 = await r2.json();
+        if(d2.ok) setTenantMods(d2);
+      }
+    } catch(_){ setMsgMod("Error de conexión"); }
+    setActivando(null);
+  };
+
+  const GRUPOS = ["Operaciones","Comercial","Comunicación","Gestión"];
 
   return (
     <div className="view-anim">
@@ -2622,13 +2729,20 @@ function ViewClientes() {
                   <td><span className={`bdg ${PLAN_META[t.plan]?.cls||"bdg-moon"}`}>{PLAN_META[t.plan]?.label||t.plan}</span></td>
                   <td><span className={`bdg ${t.activo?"bdg-em":"bdg-moon"}`}>{t.activo?"Activo":"Inactivo"}</span></td>
                   <td style={{fontSize:"0.72rem",color:"var(--muted)"}}>{new Date(t.creado_en).toLocaleDateString("es-AR")}</td>
-                  <td><button className="btn btn-out btn-xs" onClick={()=>abrirEditar(t)}>Editar</button></td>
+                  <td style={{display:"flex",gap:4}}>
+                    <button className="btn btn-out btn-xs" onClick={()=>abrirEditar(t)}>Editar</button>
+                    <button className="btn btn-xs" style={{background:"var(--pr-pale)",color:"var(--pr)",border:"none"}} onClick={()=>abrirModulos(t)}>
+                      <i className="bi bi-puzzle" /> Módulos
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* ── Modal editar/crear tenant ── */}
       {modal && (
         <Modal onClose={()=>setModal(false)}>
           <div className="modal-hdr"><span className="modal-title">{editando?"Editar cliente":"Nuevo cliente"}</span><button className="btn btn-out btn-xs" onClick={()=>setModal(false)}>✕</button></div>
@@ -2640,6 +2754,93 @@ function ViewClientes() {
             <div className="fg"><label className="fl">Email</label><input className="fi" type="email" value={form.email} onChange={e=>f({email:e.target.value})} /></div>
           </div>
           <ModalFooter onCancel={()=>setModal(false)} onConfirm={guardar} saving={saving} labelConfirm={editando?"Guardar cambios":"Crear cliente"} />
+        </Modal>
+      )}
+
+      {/* ── Modal gestión de módulos ── */}
+      {modalMods && (
+        <Modal onClose={()=>setModalMods(false)} wide>
+          <div className="modal-hdr">
+            <span className="modal-title">
+              <i className="bi bi-puzzle" style={{marginRight:6}} />
+              Módulos — {tenantMods?.tenant?.nombre || "..."}
+            </span>
+            <button className="btn btn-out btn-xs" onClick={()=>setModalMods(false)}>✕</button>
+          </div>
+          <div className="modal-body">
+            {loadingMods ? (
+              <div style={{padding:"2rem",textAlign:"center",color:"var(--muted)"}}>Cargando módulos...</div>
+            ) : !tenantMods ? (
+              <div style={{color:"var(--red)",fontSize:"0.82rem"}}>Error al cargar módulos.</div>
+            ) : (
+              <>
+                {msgMod && (
+                  <div style={{
+                    background: msgMod.startsWith("Módulo") ? "var(--em-pale)" : "var(--red-bg)",
+                    color: msgMod.startsWith("Módulo") ? "var(--em-d)" : "var(--red)",
+                    padding:"0.5rem 0.8rem", borderRadius:"var(--r-sm)", fontSize:"0.78rem", marginBottom:12
+                  }}>{msgMod}</div>
+                )}
+
+                {/* Recomendados */}
+                {tenantMods.recomendados?.length > 0 && (
+                  <div style={{marginBottom:14,padding:"0.6rem 0.8rem",background:"var(--pr-pale)",borderRadius:"var(--r-sm)",fontSize:"0.75rem",color:"var(--pr)"}}>
+                    <i className="bi bi-stars" style={{marginRight:5}} />
+                    Recomendados para <strong>{tenantMods.tenant.rubro}</strong> con plan <strong>{tenantMods.tenant.plan}</strong>:&nbsp;
+                    {tenantMods.recomendados.map(id => tenantMods.catalogo.find(m=>m.id===id)?.label).filter(Boolean).join(", ")}
+                  </div>
+                )}
+
+                {/* Módulos por grupo */}
+                {GRUPOS.map(grupo => {
+                  const mods = tenantMods.catalogo.filter(m => m.grupo === grupo);
+                  if (!mods.length) return null;
+                  return (
+                    <div key={grupo} style={{marginBottom:18}}>
+                      <div style={{fontSize:"0.65rem",fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}}>{grupo}</div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                        {mods.map(m => (
+                          <div key={m.id} style={{
+                            border:"1px solid var(--border)",borderRadius:"var(--r-sm)",
+                            padding:"10px 12px",
+                            background: m.activo ? "var(--em-pale)" : m.disponible ? "#fff" : "var(--bg)",
+                            opacity: m.disponible ? 1 : 0.65,
+                          }}>
+                            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                              <i className={`bi ${m.icon}`} style={{color: m.activo?"var(--em-d)":m.disponible?"var(--pr)":"var(--muted)",fontSize:"0.9rem"}} />
+                              <span style={{fontWeight:600,fontSize:"0.8rem",flex:1}}>{m.label}</span>
+                              {m.activo && <span style={{fontSize:"0.6rem",fontWeight:700,color:"var(--em-d)",background:"var(--em-pale)",border:"1px solid var(--em-d)",borderRadius:20,padding:"1px 7px"}}>ACTIVO</span>}
+                              {!m.disponible && <span style={{fontSize:"0.6rem",color:"var(--muted)",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:20,padding:"1px 7px"}}>Plan {m.plan_minimo}</span>}
+                            </div>
+                            <div style={{fontSize:"0.72rem",color:"var(--sub)",marginBottom:8,lineHeight:1.4}}>{m.descripcion}</div>
+                            {m.activo ? (
+                              <button
+                                className="btn btn-xs"
+                                style={{background:"var(--red-bg)",color:"var(--red)",border:"1px solid var(--red)",fontSize:"0.7rem"}}
+                                disabled={activando===m.id}
+                                onClick={()=>desactivar(m.id)}
+                              >
+                                {activando===m.id?"...":"Desactivar"}
+                              </button>
+                            ) : (
+                              <button
+                                className="btn btn-em btn-xs"
+                                style={{fontSize:"0.7rem"}}
+                                disabled={!m.disponible || activando===m.id}
+                                onClick={()=>m.disponible && activar(m.id)}
+                              >
+                                {activando===m.id ? "Activando..." : <><i className="bi bi-lightning-charge" /> Activar</>}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
         </Modal>
       )}
     </div>
