@@ -10,10 +10,10 @@ import { applyTheme, THEME_STORAGE_KEY } from "../../lib/panel-themes";
 // Profile content components (external files — no content lives in this layout)
 import PerfilContent       from "../../components/profile/PerfilContent";
 import PersonalizarContent from "../../components/profile/PersonalizarContent";
-import DocumentosContent   from "../../components/profile/DocumentosContent";
 import MasInfoContent      from "../../components/profile/MasInfoContent";
 import IdiomaContent       from "../../components/profile/IdiomaContent";
 import AyudaContent        from "../../components/profile/AyudaContent";
+import { DOCUMENTOS }      from "../../lib/documentos";
 
 // ── MAIA Topbar ────────────────────────────────────────────────────────────────
 function MaiaTopbar() {
@@ -39,7 +39,6 @@ const NAV_ITEMS = [
 const PROFILE_MODALS = {
   perfil:       { title: "Mi perfil",       Component: PerfilContent },
   personalizar: { title: "Personalizar",    Component: PersonalizarContent },
-  documentos:   { title: "Documentos",      Component: DocumentosContent },
   masinfo:      { title: "Más información", Component: MasInfoContent },
   idioma:       { title: "Idioma",          Component: IdiomaContent },
   ayuda:        { title: "Obtener ayuda",   Component: AyudaContent },
@@ -115,6 +114,8 @@ function ProfileModal({ modalKey, onClose }) {
 function ProfileButton({ session, collapsed, onOpenModal }) {
   const [open, setOpen]           = useState(false);
   const [dropPos, setDropPos]     = useState(null);
+  const [docsExpanded, setDocsExpanded] = useState(false);
+  const [openDoc, setOpenDoc]     = useState(null);
   const btnRef  = useRef(null);
   const dropRef = useRef(null);
 
@@ -162,6 +163,7 @@ function ProfileButton({ session, collapsed, onOpenModal }) {
 
   const openModal = (key) => {
     setOpen(false);
+    setDocsExpanded(false);
     onOpenModal(key);
   };
 
@@ -196,6 +198,43 @@ function ProfileButton({ session, collapsed, onOpenModal }) {
         </button>
       </div>
 
+      {openDoc && (
+        <div
+          className="pmodal-backdrop"
+          style={{ zIndex: 1100 }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setOpenDoc(null); }}
+        >
+          <div className="pmodal">
+            <div className="pmodal__header">
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <i className={`bi ${openDoc.icon}`} style={{ fontSize: "16px", color: "var(--pr)" }} />
+                <span className="pmodal__title">{openDoc.label}</span>
+              </div>
+              <button className="pmodal__close" onClick={() => setOpenDoc(null)} title="Cerrar">
+                <i className="bi bi-x" />
+              </button>
+            </div>
+            <div className="pmodal__body">
+              {openDoc.url ? (
+                <iframe
+                  src={openDoc.url}
+                  style={{ width: "100%", height: "60vh", border: "none" }}
+                  title={openDoc.label}
+                />
+              ) : (
+                <div className="ui-empty">
+                  <i className="bi bi-file-earmark-x ui-empty__icon" />
+                  <div className="ui-empty__text">Documento no disponible aún</div>
+                  <div className="ui-empty__sub">
+                    {openDoc.version ? `${openDoc.version} · Será cargado próximamente` : "Será cargado próximamente"}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {open && (
         <div ref={dropRef} className="sb-dropdown sb-dropdown--fixed" style={dropStyle}>
           <button className="sb-dropdown__item" onClick={() => openModal("perfil")}>
@@ -204,9 +243,28 @@ function ProfileButton({ session, collapsed, onOpenModal }) {
           <button className="sb-dropdown__item" onClick={() => openModal("personalizar")}>
             <i className="bi bi-sliders" /> Personalizar
           </button>
-          <button className="sb-dropdown__item" onClick={() => openModal("documentos")}>
+          <button
+            className={`sb-dropdown__item sb-dropdown__item--has-sub${docsExpanded ? " sb-dropdown__item--sub-open" : ""}`}
+            onClick={() => setDocsExpanded(d => !d)}
+          >
             <i className="bi bi-file-earmark-text" /> Documentos
+            <i className={`bi bi-chevron-right sb-dropdown__sub-chevron${docsExpanded ? " sb-dropdown__sub-chevron--open" : ""}`} />
           </button>
+          {docsExpanded && (
+            <div className="sb-dropdown__sub">
+              {DOCUMENTOS.map(doc => (
+                <button
+                  key={doc.id}
+                  className="sb-dropdown__item sb-dropdown__item--sub"
+                  onClick={() => { setOpen(false); setDocsExpanded(false); setOpenDoc(doc); }}
+                >
+                  <i className={`bi ${doc.icon}`} />
+                  <span>{doc.label}</span>
+                  <i className="bi bi-arrow-up-right sb-dropdown__sub-open-icon" />
+                </button>
+              ))}
+            </div>
+          )}
           <div className="sb-dropdown__sep" />
           <button className="sb-dropdown__item" onClick={() => openModal("masinfo")}>
             <i className="bi bi-info-circle" /> Más información

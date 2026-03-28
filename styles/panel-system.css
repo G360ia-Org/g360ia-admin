@@ -196,6 +196,13 @@
 .sb-dropdown__item--danger { color:var(--alert); }
 .sb-dropdown__item--danger:hover { background:var(--alert-bg); }
 .sb-dropdown__sep { height:1px; background:var(--border); margin:0 10px; }
+.sb-dropdown__item--has-sub { justify-content:space-between; }
+.sb-dropdown__sub-chevron { font-size:10px; color:var(--muted); margin-left:auto; transition:transform .18s; }
+.sb-dropdown__sub-chevron--open { transform:rotate(90deg); }
+.sb-dropdown__sub { background:var(--bg-soft,#F4F6F8); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.sb-dropdown__item--sub { padding-left:32px; font-size:12px; color:var(--text2); }
+.sb-dropdown__item--sub:hover { background:var(--pr-bg); }
+.sb-dropdown__sub-open-icon { margin-left:auto; font-size:9px; color:var(--muted); }
 
 
 /* ============================================================
