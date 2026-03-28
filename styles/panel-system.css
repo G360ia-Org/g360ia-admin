@@ -142,7 +142,7 @@
 .sb { width:var(--sb-w); min-width:var(--sb-w); background:var(--sb-bg); display:flex; flex-direction:column; height:100vh; position:sticky; top:0; transition:width .22s ease,min-width .22s ease; overflow:hidden; z-index:20; }
 .sb--collapsed { width:var(--sb-w-collapsed); min-width:var(--sb-w-collapsed); }
 
-.sb-logo { padding:20px 20px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--sb-brd); overflow:hidden; min-height:72px; flex-shrink:0; }
+.sb-logo { padding:20px 20px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--sb-brd); overflow:hidden; height:var(--topbar-h); flex-shrink:0; }
 .sb--collapsed .sb-logo { padding:20px 0; justify-content:center; gap:0; }
 .sb-logo--clickable { cursor:pointer; transition:background .15s; }
 .sb-logo--clickable:hover { background:rgba(255,255,255,.06); }
@@ -201,7 +201,7 @@
 /* ============================================================
    04. TOP BAR + IA PILL
    ============================================================ */
-.mod-topbar { background:var(--topbar-bg); padding:14px 22px; min-height:72px; display:flex; align-items:center; gap:14px; flex-shrink:0; border-bottom:1px solid var(--topbar-brd); }
+.mod-topbar { background:var(--topbar-bg); padding:0 22px; height:var(--topbar-h); display:flex; align-items:center; gap:14px; flex-shrink:0; border-bottom:1px solid var(--topbar-brd); }
 .mod-topbar__title { font-size:14px; font-weight:600; color:#fff; flex-shrink:0; }
 .mod-topbar__sep   { color:rgba(255,255,255,.3); flex-shrink:0; }
 .mod-topbar__sub   { font-size:11px; color:rgba(255,255,255,.6); flex-shrink:0; }
