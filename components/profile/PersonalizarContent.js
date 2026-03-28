@@ -1,44 +1,48 @@
 "use client";
 // components/profile/PersonalizarContent.js
-// Contenido del popup "Personalizar"
+// Contenido del popup "Personalizar" — selector de paleta de colores del sidebar
+
+import { useState } from "react";
+import { THEMES, THEME_STORAGE_KEY, applyTheme } from "@/lib/panel-themes";
 
 export default function PersonalizarContent() {
+  const [selected, setSelected] = useState(
+    () => (typeof window !== "undefined" && localStorage.getItem(THEME_STORAGE_KEY)) || "slate"
+  );
+
+  function handleSelect(key) {
+    setSelected(key);
+    applyTheme(key);
+    localStorage.setItem(THEME_STORAGE_KEY, key);
+  }
+
   return (
     <div className="prof-content">
-      <div className="prof-section-title">Apariencia</div>
-      <div className="prof-option-row">
-        <div className="prof-option-info">
-          <div className="prof-option-label">Tema</div>
-          <div className="prof-option-sub">Seleccioná el esquema de colores del panel</div>
-        </div>
-        <select className="prof-select">
-          <option value="system">Sistema</option>
-          <option value="light">Claro</option>
-          <option value="dark">Oscuro</option>
-        </select>
-      </div>
-      <div className="prof-option-row">
-        <div className="prof-option-info">
-          <div className="prof-option-label">Tamaño de fuente</div>
-          <div className="prof-option-sub">Ajustá el tamaño del texto del panel</div>
-        </div>
-        <select className="prof-select">
-          <option value="sm">Pequeño</option>
-          <option value="md">Mediano</option>
-          <option value="lg">Grande</option>
-        </select>
-      </div>
-      <div className="prof-divider" />
-      <div className="prof-section-title">Sidebar</div>
-      <div className="prof-option-row">
-        <div className="prof-option-info">
-          <div className="prof-option-label">Inicio colapsado</div>
-          <div className="prof-option-sub">El sidebar arranca minimizado al entrar al panel</div>
-        </div>
-        <label className="prof-toggle">
-          <input type="checkbox" />
-          <span className="prof-toggle__track" />
-        </label>
+      <div className="prof-section-title">Color del sidebar</div>
+      <div className="prof-themes-grid">
+        {Object.entries(THEMES).map(([key, t]) => {
+          const gradient =
+            t.preview.length === 1
+              ? t.preview[0]
+              : `linear-gradient(135deg, ${t.preview.join(", ")})`;
+          const active = selected === key;
+          return (
+            <div
+              key={key}
+              className={`prof-theme-card${active ? " prof-theme-card--active" : ""}`}
+              onClick={() => handleSelect(key)}
+            >
+              <div className="prof-theme-swatch" style={{ background: gradient }}>
+                {active && (
+                  <div className="prof-theme-check">
+                    <i className="bi bi-check" />
+                  </div>
+                )}
+              </div>
+              <div className="prof-theme-label">{t.label}</div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

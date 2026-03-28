@@ -4,6 +4,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import "../../styles/panel.css";
 
+// Theme loader — data lives in lib/panel-themes, not here
+import { applyTheme, THEME_STORAGE_KEY } from "../../lib/panel-themes";
+
 // Profile content components (external files — no content lives in this layout)
 import PerfilContent       from "../../components/profile/PerfilContent";
 import PersonalizarContent from "../../components/profile/PersonalizarContent";
@@ -219,6 +222,12 @@ export default function DashboardLayout({ children }) {
   const { data: session } = useSession();
   const [collapsed,  setCollapsed]  = useState(false);
   const [activeModal, setActiveModal] = useState(null); // key of open profile modal
+
+  // Cargar tema guardado al montar
+  useEffect(() => {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved) applyTheme(saved);
+  }, []);
 
   const pathname = typeof window !== "undefined" ? window.location.pathname : "/dashboard";
 
