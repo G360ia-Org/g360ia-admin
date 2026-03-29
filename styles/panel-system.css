@@ -201,7 +201,7 @@
 /* ============================================================
    04. TOP BAR + IA PILL
    ============================================================ */
-.mod-topbar { background:var(--topbar-bg); padding:10px 22px; display:flex; align-items:center; gap:14px; flex-shrink:0; border-bottom:1px solid var(--topbar-brd); }
+.mod-topbar { background:var(--topbar-bg); padding:10px 22px; min-height:var(--topbar-h,72px); display:flex; align-items:center; gap:14px; flex-shrink:0; border-bottom:1px solid var(--topbar-brd); }
 .mod-topbar__title { font-size:14px; font-weight:600; color:#fff; flex-shrink:0; }
 .mod-topbar__sep   { color:rgba(255,255,255,.3); flex-shrink:0; }
 .mod-topbar__sub   { font-size:11px; color:rgba(255,255,255,.6); flex-shrink:0; }
@@ -285,6 +285,14 @@
 .dot--slate { background:var(--grad-slate); }
 .dot--alert { background:var(--alert); }
 
+/* ui-badge — alias semánticos para módulos */
+.ui-badge       { display:inline-flex; align-items:center; padding:2px 8px; font-size:10px; font-weight:700; font-family:var(--font-mono); letter-spacing:.03em; white-space:nowrap; }
+.ui-badge--green { background:var(--badge-green); color:var(--em-d); }
+.ui-badge--amber { background:var(--badge-champ); color:#7A5010; }
+.ui-badge--red   { background:var(--badge-alert); color:#8A1A10; }
+.ui-badge--blue  { background:var(--badge-teal);  color:#0A5A7A; }
+.ui-badge--gray  { background:var(--badge-muted); color:var(--sub); border:1px solid var(--border2); }
+
 
 /* ============================================================
    09. BOTONES
@@ -302,6 +310,25 @@
 .btn--sm { padding:4px 10px; font-size:11px; }
 .btn--lg { padding:10px 20px; font-size:13px; }
 .btn--full { width:100%; justify-content:center; }
+
+/* ui-btn — alias semánticos para módulos */
+.ui-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; font-size:12px; font-family:inherit; cursor:pointer; border:1px solid transparent; font-weight:500; transition:background .15s, opacity .15s; }
+.ui-btn:hover  { opacity:.88; }
+.ui-btn:active { opacity:.75; }
+.ui-btn:disabled { opacity:.4; cursor:not-allowed; }
+.ui-btn--primary   { background:var(--grad-slate); color:#fff; font-weight:600; border-color:transparent; }
+.ui-btn--secondary { background:var(--surface); color:var(--text2); border-color:var(--border2); }
+.ui-btn--secondary:hover { background:var(--bg-hover); opacity:1; }
+.ui-btn--danger    { background:var(--alert); color:#fff; font-weight:600; border-color:transparent; }
+.ui-btn--accent    { background:var(--grad-champ); color:#fff; font-weight:600; border-color:transparent; }
+.ui-btn--sm  { padding:3px 10px; font-size:11px; }
+.ui-btn--full { width:100%; justify-content:center; }
+
+/* ui-card — contenedor de sección con superficie */
+.ui-card        { background:var(--surface); box-shadow:var(--shadow-sm); }
+.ui-card__header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border); }
+.ui-card__title  { font-size:11px; font-weight:700; color:var(--sub); text-transform:uppercase; letter-spacing:.06em; font-family:var(--font-mono); }
+.ui-card__body   { padding:16px; }
 
 
 /* ============================================================
@@ -472,6 +499,13 @@
 .stat-card__delta { font-size:11px; margin-top:5px; display:flex; align-items:center; gap:4px; color:var(--em); }
 .stat-card__delta--neg { color:var(--alert); }
 .stat-card__delta--neu { color:var(--muted); }
+
+/* ui-stats-grid — alias semántico para módulos */
+.ui-stats-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.ui-stats-grid--3 { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.ui-stat        { background:var(--surface); box-shadow:var(--shadow-sm); padding:14px 18px; }
+.ui-stat__value { font-size:22px; font-weight:700; color:var(--text); line-height:1; }
+.ui-stat__label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; font-family:var(--font-mono); margin-top:4px; }
 
 
 /* ============================================================
