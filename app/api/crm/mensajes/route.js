@@ -111,8 +111,8 @@ export async function POST(req) {
           const numero = (convFull.whatsapp || convFull.telefono).replace(/\D/g, "");
           if (process.env.EVOLUTION_API_URL && process.env.EVOLUTION_API_KEY) {
             const [[instancia]] = await modulosDb.query(
-              `SELECT wi.instance_key FROM db_g360ia.whatsapp_instancias wi
-               WHERE wi.tenant_id = ? AND wi.estado = 'conectado' LIMIT 1`,
+              `SELECT instance_key FROM mcp_api_whatsapp
+               WHERE tenant_id <=> ? AND estado = 'conectado' LIMIT 1`,
               [tenant_id]
             );
             if (instancia?.instance_key) {
