@@ -317,12 +317,14 @@ export default function DashboardLayout({ children }) {
           <SidebarLogo collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
 
           <nav className="sb-nav">
-            {navItems.map(item => (
-              <NavItem
-                key={item.slug}
-                item={item}
-              />
-            ))}
+            {navItems.length > 0 && (
+              <>
+                <div className="sb-nav__section">Principal</div>
+                {navItems.map(item => (
+                  <NavItem key={item.slug} item={item} />
+                ))}
+              </>
+            )}
           </nav>
 
           <ProfileButton
