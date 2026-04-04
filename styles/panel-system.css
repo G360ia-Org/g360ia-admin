@@ -161,7 +161,7 @@
 .sb-nav__section { font-size:9px; color:rgba(255,255,255,.3); text-transform:uppercase; letter-spacing:.08em; padding:10px 20px 3px; font-family:var(--font-mono); }
 .sb--collapsed .sb-nav__section { display:none; }
 
-.sb-nav__item { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:8px; margin:2px 8px; text-decoration:none; color:rgba(255,255,255,.6); background:transparent; transition:background .15s,color .15s; font-size:13px; font-weight:400; white-space:nowrap; overflow:hidden; }
+.sb-nav__item { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:8px; margin:2px 8px; text-decoration:none; color:rgba(255,255,255,.6); background:transparent; border:none; cursor:pointer; font-family:inherit; transition:background .15s,color .15s; font-size:13px; font-weight:400; white-space:nowrap; overflow:hidden; }
 .sb--collapsed .sb-nav__item { padding:10px 0; justify-content:center; }
 .sb-nav__item:hover { background:rgba(255,255,255,.07); color:rgba(255,255,255,.85); }
 .sb-nav__item--active { background:var(--sb-active); color:#fff; font-weight:600; }
