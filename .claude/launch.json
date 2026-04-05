@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "g360ia-admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "E:/GitHub/g360ia-admin",
+      "port": 3000
+    },
+    {
+      "name": "g360ia-portal",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "E:/GitHub/g360ia-portal",
+      "port": 3001
+    }
+  ]
+}

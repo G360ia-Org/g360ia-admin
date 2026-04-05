@@ -7,7 +7,7 @@ function guardAdmin(session) {
   return session?.user?.rol === "superadmin";
 }
 
-// GET /api/adm-rubros/herramientas?modulo=crm
+// GET /api/adm-rubros/modulos-planes?modulo=crm
 export async function GET(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
@@ -18,25 +18,26 @@ export async function GET(request) {
   if (!modulo) return NextResponse.json({ ok: false, error: "Falta modulo" }, { status: 400 });
 
   const [rows] = await modDb.query(
-    "SELECT id, slug, nombre, descripcion, plan_minimo, activo FROM modulos_herramientas WHERE modulo = ? ORDER BY id",
+    "SELECT id, plan, precio, activo FROM modulos_planes WHERE modulo = ? ORDER BY id",
     [modulo]
   );
-  return NextResponse.json({ ok: true, herramientas: rows });
+  return NextResponse.json({ ok: true, planes: rows });
 }
 
-// PUT /api/adm-rubros/herramientas
-// body: { id, plan_minimo }
+// PUT /api/adm-rubros/modulos-planes
+// body: { id, precio }
 export async function PUT(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   if (!guardAdmin(session)) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
-  const { id, plan_minimo } = await request.json();
-  if (!id || !plan_minimo) return NextResponse.json({ ok: false, error: "Faltan campos" }, { status: 400 });
+  const { id, precio } = await request.json();
+  if (id === undefined || precio === undefined)
+    return NextResponse.json({ ok: false, error: "Faltan campos" }, { status: 400 });
 
   await modDb.query(
-    "UPDATE modulos_herramientas SET plan_minimo = ? WHERE id = ?",
-    [plan_minimo, id]
+    "UPDATE modulos_planes SET precio = ? WHERE id = ?",
+    [precio, id]
   );
   return NextResponse.json({ ok: true });
 }
