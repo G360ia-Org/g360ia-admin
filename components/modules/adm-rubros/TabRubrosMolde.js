@@ -42,10 +42,9 @@ export default function TabRubrosMolde() {
         fetch("/api/adm-rubros/modulos").then(r => r.json()),
         fetch("/api/adm-rubros/rubros-modulos").then(r => r.json()),
       ]);
-      if (rRes.ok) {
-        setRubros(rRes.rubros);
-        setRubroSel(sel => sel ?? (rRes.rubros[0]?.id ?? null));
-      }
+      const listaRubros = rRes.ok ? rRes.rubros : [];
+      setRubros(listaRubros);
+      setRubroSel(prev => prev ?? (listaRubros[0]?.id ?? null));
       if (mRes.ok) setModulos(mRes.modulos);
       if (aRes.ok) setAsignaciones(aRes.asignaciones);
     } catch (e) {
@@ -144,7 +143,7 @@ export default function TabRubrosMolde() {
                   padding:     "10px 16px",
                   cursor:      "pointer",
                   borderLeft:  rubroSel === r.id ? "3px solid var(--pr)" : "3px solid transparent",
-                  background:  rubroSel === r.id ? "var(--hover)" : "transparent",
+                  background:  rubroSel === r.id ? "var(--bg-hover)" : "transparent",
                   fontWeight:  rubroSel === r.id ? 600 : 400,
                   fontSize:    14,
                   color:       "var(--text)",
@@ -166,7 +165,9 @@ export default function TabRubrosMolde() {
           {/* sección 1: módulos habilitados */}
           <div className="ui-card">
             <div className="ui-card__header">
-              <span className="ui-card__title">Módulos habilitados</span>
+              <span className="ui-card__title">
+                Módulos habilitados para <strong>{rubros.find(r => r.id === rubroSel)?.nombre}</strong>
+              </span>
             </div>
             <div className="ui-card__body" style={{ padding: 0 }}>
               {modulos.length === 0 ? (
