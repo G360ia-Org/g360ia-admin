@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-const EMPTY_FORM = { slug: "", nombre: "" };
+const EMPTY_FORM = { nombre: "", descripcion: "" };
 
 export default function TabRubros() {
   const [rubros,  setRubros]  = useState([]);
@@ -34,21 +34,26 @@ export default function TabRubros() {
   }
 
   async function guardar() {
-    if (!form.slug.trim() || !form.nombre.trim()) {
-      setError("Completá slug y nombre.");
+    if (!form.nombre.trim()) {
+      setError("El nombre es requerido.");
       return;
     }
     setSaving(true);
     setError("");
-    const r = await fetch("/api/adm-rubros/rubros", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(form),
-    });
-    const d = await r.json();
-    setSaving(false);
-    if (d.ok) { setModal(false); cargar(); }
-    else setError(d.error ?? "Error al guardar.");
+    try {
+      const r = await fetch("/api/adm-rubros/rubros", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(form),
+      });
+      const d = await r.json();
+      if (d.ok) { setModal(false); cargar(); }
+      else setError(d.error ?? "Error al guardar.");
+    } catch (e) {
+      setError("Error de conexión.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) return (
@@ -78,16 +83,16 @@ export default function TabRubros() {
             <table className="ui-table">
               <thead>
                 <tr>
-                  <th>Slug</th>
                   <th>Nombre</th>
+                  <th>Descripción</th>
                   <th>Estado</th>
                 </tr>
               </thead>
               <tbody>
                 {rubros.map(r => (
                   <tr key={r.id}>
-                    <td><code>{r.slug}</code></td>
-                    <td>{r.nombre}</td>
+                    <td><strong>{r.nombre}</strong></td>
+                    <td>{r.descripcion ?? "—"}</td>
                     <td>
                       <span className={`ui-badge ui-badge--${r.activo ? "green" : "gray"}`}>
                         {r.activo ? "activo" : "inactivo"}
@@ -112,21 +117,21 @@ export default function TabRubros() {
             </div>
             <div className="pmodal__body">
               <div className="ui-field">
-                <label className="ui-label">Slug</label>
-                <input
-                  className="ui-input"
-                  placeholder="ej: servicio_tecnico"
-                  value={form.slug}
-                  onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
-                />
-              </div>
-              <div className="ui-field">
                 <label className="ui-label">Nombre</label>
                 <input
                   className="ui-input"
                   placeholder="ej: Servicio Técnico"
                   value={form.nombre}
                   onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+                />
+              </div>
+              <div className="ui-field">
+                <label className="ui-label">Descripción</label>
+                <input
+                  className="ui-input"
+                  placeholder="ej: Talleres de reparación..."
+                  value={form.descripcion}
+                  onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
                 />
               </div>
               {error && <p className="ui-badge ui-badge--red">{error}</p>}
