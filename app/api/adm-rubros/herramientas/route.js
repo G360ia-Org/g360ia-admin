@@ -17,15 +17,7 @@ export async function GET(request) {
   const slug = searchParams.get("modulo_slug");
   if (!slug) return NextResponse.json({ ok: false, error: "Falta modulo_slug" }, { status: 400 });
 
-  const dbName = process.env.DB_MODULOS_NAME;
-  const [rows] = await modDb.query(
-    `SELECT TABLE_NAME AS tabla
-     FROM INFORMATION_SCHEMA.TABLES
-     WHERE TABLE_SCHEMA = ? AND TABLE_NAME LIKE ?
-     ORDER BY TABLE_NAME`,
-    [dbName, `${slug}_%`]
-  );
-
-  const herramientas = rows.map(r => r.tabla);
+  const [rows] = await modDb.query(`SHOW TABLES LIKE '${slug}\\_%'`);
+  const herramientas = rows.map(r => Object.values(r)[0]);
   return NextResponse.json({ ok: true, herramientas });
 }
