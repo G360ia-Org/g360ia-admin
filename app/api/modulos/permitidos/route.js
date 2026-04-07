@@ -48,14 +48,14 @@ export async function GET() {
       );
     }
 
-    // Resto de usuarios: módulos activos en adm_rubros_* según su tenant
+    // Resto de usuarios: módulos activos en mtz_* según su tenant
     if (!session.user.tenant_id) return NextResponse.json([]);
 
     const [rows] = await modDb.query(`
       SELECT m.slug
-      FROM adm_rubros_rubros_modulos rm
-      JOIN adm_rubros_rubros  r ON r.id = rm.rubro_id
-      JOIN adm_rubros_modulos m ON m.id = rm.modulo_id
+      FROM mtz_rubros_modulos rm
+      JOIN mtz_rubros  r ON r.id = rm.rubro_id
+      JOIN mtz_modulos m ON m.id = rm.modulo_id
       WHERE rm.rubro_id = ? AND m.activo = 1
       ORDER BY m.slug
     `, [session.user.tenant_id]);
