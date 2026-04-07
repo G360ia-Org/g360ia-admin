@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import TabRubros      from "./TabRubros";
-import TabRubrosMolde from "./TabRubrosMolde";
+import TabRubros  from "./TabRubros";
+import TabModulos from "./TabModulos";
+import TabPlanes  from "./TabPlanes";
 
 const TABS = [
-  { id: "rubros",       label: "Rubros",       icon: "bi-building"  },
-  { id: "asignaciones", label: "Asignaciones", icon: "bi-grid-3x3"  },
+  { id: "rubros",  label: "Rubros",  icon: "bi-building"  },
+  { id: "modulos", label: "Módulos", icon: "bi-box-seam"  },
+  { id: "planes",  label: "Planes",  icon: "bi-credit-card" },
 ];
 
-export default function AdmRubrosModule() {
+export default function MatrizModule() {
   const [tab, setTab] = useState("rubros");
 
   return (
@@ -17,8 +19,8 @@ export default function AdmRubrosModule() {
 
       <div className="mod-page-header">
         <div>
-          <div className="mod-title">Administración de Rubros</div>
-          <div className="mod-sub">Rubros · Asignaciones</div>
+          <div className="mod-title">Matriz</div>
+          <div className="mod-sub">Rubros · Módulos · Planes</div>
         </div>
       </div>
 
@@ -35,8 +37,9 @@ export default function AdmRubrosModule() {
       </div>
 
       <div className="mod-tab-body">
-        {tab === "rubros"       && <TabRubros />}
-        {tab === "asignaciones" && <TabRubrosMolde />}
+        {tab === "rubros"  && <TabRubros />}
+        {tab === "modulos" && <TabModulos />}
+        {tab === "planes"  && <TabPlanes />}
       </div>
 
     </div>
