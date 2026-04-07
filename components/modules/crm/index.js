@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useSession } from "next-auth/react";
-import TabLeads from "./TabLeads";
-import TabFunnel from "./TabFunnel";
-import TabConversaciones from "./TabConversaciones";
-import TabClientes from "./TabClientes";
+import { useState }         from "react";
+import { useSession }       from "next-auth/react";
+import SlidingTabs          from "@/components/ui/SlidingTabs";
+import TabLeads             from "./TabLeads";
+import TabFunnel            from "./TabFunnel";
+import TabConversaciones    from "./TabConversaciones";
+import TabClientes          from "./TabClientes";
 
 const TABS = [
   { id: "leads",          label: "Leads",         icon: "bi-person-plus" },
@@ -38,8 +39,6 @@ export default function CRMModule() {
 
   return (
     <div className="mod-tabs-layout">
-
-      {/* Header */}
       <div className="mod-page-header">
         <div>
           <div className="mod-title">CRM</div>
@@ -47,32 +46,12 @@ export default function CRMModule() {
         </div>
       </div>
 
-      {/* Tabs — full width, sin padding lateral */}
-      <div className="ui-tabs">
-        {TABS.map(t => (
-          <div
-            key={t.id}
-            className={`ui-tab${tab === t.id ? " ui-tab--active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
-            <i className={`bi ${t.icon}`} /> {t.label}
-          </div>
-        ))}
-      </div>
-
-      {/* Contenido del tab activo */}
-      {tab === "conversaciones" ? (
-        <div className="mod-tab-body mod-tab-body--flush">
-          <TabConversaciones {...ctx} />
-        </div>
-      ) : (
-        <div className="mod-tab-body">
-          {tab === "leads"   && <TabLeads   {...ctx} />}
-          {tab === "funnel"  && <TabFunnel  {...ctx} />}
-          {tab === "clientes" && <TabClientes {...ctx} />}
-        </div>
-      )}
-
+      <SlidingTabs tabs={TABS} activeTab={tab} onTabChange={setTab} flushIds={["conversaciones"]}>
+        <TabLeads          {...ctx} />
+        <TabFunnel         {...ctx} />
+        <TabConversaciones {...ctx} />
+        <TabClientes       {...ctx} />
+      </SlidingTabs>
     </div>
   );
 }

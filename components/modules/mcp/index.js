@@ -1,19 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useSession } from "next-auth/react";
-import TabHub         from "./TabHub";
-import TabWhatsapp    from "./TabWhatsapp";
-import TabMercadoPago from "./TabMercadoPago";
-import TabGoogle      from "./TabGoogle";
-import TabMeta        from "./TabMeta";
+import { useState }      from "react";
+import { useSession }    from "next-auth/react";
+import SlidingTabs       from "@/components/ui/SlidingTabs";
+import TabHub            from "./TabHub";
+import TabWhatsapp       from "./TabWhatsapp";
+import TabMercadoPago    from "./TabMercadoPago";
+import TabGoogle         from "./TabGoogle";
+import TabMeta           from "./TabMeta";
 
 const TABS = [
-  { id: "hub",         label: "Conexiones",  icon: "bi-grid-1x2"          },
-  { id: "whatsapp",    label: "WhatsApp",     icon: "bi-whatsapp"           },
-  { id: "mercadopago", label: "MercadoPago",  icon: "bi-credit-card-2-front"},
-  { id: "google",      label: "Google",       icon: "bi-google"             },
-  { id: "meta",        label: "Meta",         icon: "bi-meta"               },
+  { id: "hub",         label: "Conexiones",  icon: "bi-grid-1x2"           },
+  { id: "whatsapp",    label: "WhatsApp",    icon: "bi-whatsapp"            },
+  { id: "mercadopago", label: "MercadoPago", icon: "bi-credit-card-2-front" },
+  { id: "google",      label: "Google",      icon: "bi-google"              },
+  { id: "meta",        label: "Meta",        icon: "bi-meta"                },
 ];
 
 export default function MCPModule() {
@@ -28,7 +29,6 @@ export default function MCPModule() {
 
   return (
     <div className="mod-tabs-layout">
-
       <div className="mod-page-header">
         <div>
           <div className="mod-title">MCP</div>
@@ -36,26 +36,13 @@ export default function MCPModule() {
         </div>
       </div>
 
-      <div className="ui-tabs">
-        {TABS.map(t => (
-          <div
-            key={t.id}
-            className={`ui-tab${tab === t.id ? " ui-tab--active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
-            <i className={`bi ${t.icon}`} /> {t.label}
-          </div>
-        ))}
-      </div>
-
-      <div className="mod-tab-body">
-        {tab === "hub"         && <TabHub         {...ctx} onTabChange={setTab} />}
-        {tab === "whatsapp"    && <TabWhatsapp    {...ctx} />}
-        {tab === "mercadopago" && <TabMercadoPago {...ctx} />}
-        {tab === "google"      && <TabGoogle      {...ctx} />}
-        {tab === "meta"        && <TabMeta        {...ctx} />}
-      </div>
-
+      <SlidingTabs tabs={TABS} activeTab={tab} onTabChange={setTab}>
+        <TabHub         {...ctx} onTabChange={setTab} />
+        <TabWhatsapp    {...ctx} />
+        <TabMercadoPago {...ctx} />
+        <TabGoogle      {...ctx} />
+        <TabMeta        {...ctx} />
+      </SlidingTabs>
     </div>
   );
 }
