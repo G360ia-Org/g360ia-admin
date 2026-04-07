@@ -11,6 +11,8 @@ const TABS = [
   { id: "planes",  label: "Planes",  icon: "bi-credit-card" },
 ];
 
+const TAB_INDEX = { rubros: 0, modulos: 1, planes: 2 };
+
 export default function MatrizModule() {
   const [tab, setTab] = useState("rubros");
   const tabRefs = useRef({});
@@ -48,10 +50,16 @@ export default function MatrizModule() {
         />
       </div>
 
-      <div className="mod-tab-body">
-        {tab === "rubros"  && <TabRubros />}
-        {tab === "modulos" && <TabModulos />}
-        {tab === "planes"  && <TabPlanes />}
+      {/* Sliding viewport — todos los paneles side-by-side, el track se desplaza */}
+      <div className="mod-tab-slider">
+        <div
+          className="mod-tab-track"
+          style={{ transform: `translateX(-${TAB_INDEX[tab] * 100}%)` }}
+        >
+          <div className="mod-tab-panel"><TabRubros /></div>
+          <div className="mod-tab-panel"><TabModulos /></div>
+          <div className="mod-tab-panel"><TabPlanes /></div>
+        </div>
       </div>
 
     </div>
