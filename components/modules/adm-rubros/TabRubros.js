@@ -19,7 +19,7 @@ export default function TabRubros() {
   async function cargar() {
     setLoading(true);
     try {
-      const r = await fetch("/api/adm-rubros/rubros");
+      const r = await fetch("/api/matriz/rubros");
       const d = await r.json();
       if (d.ok) setRubros(d.rubros);
     } catch (e) {
@@ -51,7 +51,7 @@ export default function TabRubros() {
       const body = editando
         ? { id: editando.id, ...form }
         : form;
-      const r = await fetch("/api/adm-rubros/rubros", {
+      const r = await fetch("/api/matriz/rubros", {
         method:  editando ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify(body),
@@ -65,7 +65,7 @@ export default function TabRubros() {
 
   async function borrar(id) {
     try {
-      await fetch(`/api/adm-rubros/rubros?id=${id}`, { method: "DELETE" });
+      await fetch(`/api/matriz/rubros?id=${id}`, { method: "DELETE" });
       setConfirm(null);
       cargar();
     } catch (e) { console.error(e); }

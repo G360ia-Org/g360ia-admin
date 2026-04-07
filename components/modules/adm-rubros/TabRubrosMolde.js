@@ -41,9 +41,9 @@ export default function TabRubrosMolde() {
     setLoading(true);
     try {
       const [rRes, mRes, aRes] = await Promise.all([
-        fetch("/api/adm-rubros/rubros").then(r => r.json()),
-        fetch("/api/adm-rubros/modulos").then(r => r.json()),
-        fetch("/api/adm-rubros/rubros-modulos").then(r => r.json()),
+        fetch("/api/matriz/rubros").then(r => r.json()),
+        fetch("/api/matriz/modulos").then(r => r.json()),
+        fetch("/api/matriz/rubros-modulos").then(r => r.json()),
       ]);
       const listaRubros  = rRes.ok ? rRes.rubros  : [];
       const listaModulos = mRes.ok ? mRes.modulos : [];
@@ -54,8 +54,8 @@ export default function TabRubrosMolde() {
       const entradas = await Promise.all(
         listaModulos.map(async m => {
           const [hRes, pRes] = await Promise.all([
-            fetch(`/api/adm-rubros/herramientas?modulo=${m.nombre}`).then(r => r.json()),
-            fetch(`/api/adm-rubros/modulos-planes?modulo=${m.nombre}`).then(r => r.json()),
+            fetch(`/api/matriz/herramientas?modulo=${m.nombre}`).then(r => r.json()),
+            fetch(`/api/matriz/modulos-planes?modulo=${m.nombre}`).then(r => r.json()),
           ]);
           return [m.nombre, {
             herramientas: hRes.ok ? hRes.herramientas : [],
@@ -81,16 +81,16 @@ export default function TabRubrosMolde() {
     setToggling(key);
     try {
       if (asignado) {
-        await fetch(`/api/adm-rubros/rubros-modulos?rubro_id=${rubro.id}&modulo_id=${modulo.id}`, { method: "DELETE" });
+        await fetch(`/api/matriz/rubros-modulos?rubro_id=${rubro.id}&modulo_id=${modulo.id}`, { method: "DELETE" });
         if (detalle?.rubro.id === rubro.id && detalle?.modulo.id === modulo.id) setDetalle(null);
       } else {
-        await fetch("/api/adm-rubros/rubros-modulos", {
+        await fetch("/api/matriz/rubros-modulos", {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({ rubro_id: rubro.id, modulo_id: modulo.id, plan_minimo: "free" }),
         });
       }
-      const aRes = await fetch("/api/adm-rubros/rubros-modulos").then(r => r.json());
+      const aRes = await fetch("/api/matriz/rubros-modulos").then(r => r.json());
       if (aRes.ok) setAsignaciones(aRes.asignaciones);
     } catch (e) {
       console.error("[toggleCelda]", e);
@@ -115,7 +115,7 @@ export default function TabRubrosMolde() {
     const cellKey = `${herramienta.id}-${plan}`;
     setSavingCell(cellKey);
     try {
-      await fetch("/api/adm-rubros/herramientas", {
+      await fetch("/api/matriz/herramientas", {
         method:  "PUT",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ id: herramienta.id, plan_minimo: nuevoPlan }),
@@ -140,7 +140,7 @@ export default function TabRubrosMolde() {
 
   async function actualizarGrupo(moduloId, nuevoGrupo) {
     try {
-      await fetch("/api/adm-rubros/modulos", {
+      await fetch("/api/matriz/modulos", {
         method:  "PUT",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ id: moduloId, grupo: nuevoGrupo || null }),
@@ -155,7 +155,7 @@ export default function TabRubrosMolde() {
 
   async function actualizarPrecio(planId, precio, moduloNombre) {
     try {
-      await fetch("/api/adm-rubros/modulos-planes", {
+      await fetch("/api/matriz/modulos-planes", {
         method:  "PUT",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ id: planId, precio: Number(precio) }),

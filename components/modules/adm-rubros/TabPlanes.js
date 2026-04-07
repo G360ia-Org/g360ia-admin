@@ -17,7 +17,7 @@ export default function TabPlanes() {
   const [savedCell,    setSavedCell]    = useState(null);
 
   useEffect(() => {
-    fetch("/api/adm-rubros/modulos")
+    fetch("/api/matriz/modulos")
       .then(r => r.json())
       .then(d => {
         if (d.ok && d.modulos.length > 0) {
@@ -33,8 +33,8 @@ export default function TabPlanes() {
     if (!seleccionado) return;
     setLoadingDet(true);
     Promise.all([
-      fetch(`/api/adm-rubros/herramientas?modulo=${encodeURIComponent(seleccionado)}`).then(r => r.json()),
-      fetch(`/api/adm-rubros/modulos-planes?modulo=${encodeURIComponent(seleccionado)}`).then(r => r.json()),
+      fetch(`/api/matriz/herramientas?modulo=${encodeURIComponent(seleccionado)}`).then(r => r.json()),
+      fetch(`/api/matriz/modulos-planes?modulo=${encodeURIComponent(seleccionado)}`).then(r => r.json()),
     ]).then(([hRes, pRes]) => {
       setHerramientas(hRes.ok ? hRes.herramientas : []);
       setPlanes(pRes.ok ? pRes.planes : []);
@@ -58,7 +58,7 @@ export default function TabPlanes() {
     const cellKey = `${herramienta.id}-${plan}`;
     setSavingCell(cellKey);
     try {
-      await fetch("/api/adm-rubros/herramientas", {
+      await fetch("/api/matriz/herramientas", {
         method:  "PUT",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ id: herramienta.id, plan_minimo: nuevoPlan }),
@@ -75,7 +75,7 @@ export default function TabPlanes() {
 
   async function actualizarPrecio(planId, precio) {
     try {
-      await fetch("/api/adm-rubros/modulos-planes", {
+      await fetch("/api/matriz/modulos-planes", {
         method:  "PUT",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ id: planId, precio: Number(precio) }),

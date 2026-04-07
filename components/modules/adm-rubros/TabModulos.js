@@ -91,9 +91,9 @@ export default function TabModulos() {
     setLoading(true);
     try {
       const [mRes, rRes, aRes] = await Promise.all([
-        fetch("/api/adm-rubros/modulos").then(r => r.json()),
-        fetch("/api/adm-rubros/rubros").then(r => r.json()),
-        fetch("/api/adm-rubros/rubros-modulos").then(r => r.json()),
+        fetch("/api/matriz/modulos").then(r => r.json()),
+        fetch("/api/matriz/rubros").then(r => r.json()),
+        fetch("/api/matriz/rubros-modulos").then(r => r.json()),
       ]);
       if (mRes.ok) setModulos(mRes.modulos);
       if (rRes.ok) setRubros(rRes.rubros);
@@ -109,7 +109,7 @@ export default function TabModulos() {
 
   async function guardarGrupo(moduloId, grupo) {
     try {
-      await fetch("/api/adm-rubros/modulos", {
+      await fetch("/api/matriz/modulos", {
         method:  "PUT",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ id: moduloId, grupo: grupo || null }),
@@ -130,15 +130,15 @@ export default function TabModulos() {
     setToggling(key);
     try {
       if (asignado) {
-        await fetch(`/api/adm-rubros/rubros-modulos?rubro_id=${rubro.id}&modulo_id=${modulo.id}`, { method: "DELETE" });
+        await fetch(`/api/matriz/rubros-modulos?rubro_id=${rubro.id}&modulo_id=${modulo.id}`, { method: "DELETE" });
       } else {
-        await fetch("/api/adm-rubros/rubros-modulos", {
+        await fetch("/api/matriz/rubros-modulos", {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({ rubro_id: rubro.id, modulo_id: modulo.id, plan_minimo: "free" }),
         });
       }
-      const aRes = await fetch("/api/adm-rubros/rubros-modulos").then(r => r.json());
+      const aRes = await fetch("/api/matriz/rubros-modulos").then(r => r.json());
       if (aRes.ok) setAsignaciones(aRes.asignaciones);
     } catch (e) {
       console.error("[toggleCelda]", e);
