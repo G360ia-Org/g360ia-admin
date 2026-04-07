@@ -8,7 +8,15 @@ const ICONOS = {
   "adm-rubros": "bi-building",
 };
 
-const GRUPOS = {
+// Fallback de colores por label de grupo (para badges)
+const GRUPO_COLORS = {
+  "CRM":            "blue",
+  "Conexiones":     "purple",
+  "Administración": "green",
+};
+
+// Fallback legacy por slug (para módulos sin grupo en DB aún)
+const GRUPOS_LEGACY = {
   crm:          { label: "CRM",            color: "blue"   },
   mcp:          { label: "Conexiones",     color: "purple" },
   "adm-rubros": { label: "Administración", color: "green"  },
@@ -53,7 +61,10 @@ export default function TabModulos() {
         const slug  = m.slug ?? "";
         const nombre = m.nombre ?? slug ?? `Módulo #${m.id}`;
         const icon  = ICONOS[slug] ?? "bi-box-seam";
-        const grupo = GRUPOS[slug] ?? { label: m.grupo ?? "Módulos", color: "gray" };
+        // DB grupo tiene prioridad; fallback a legacy por slug
+        const grupo = m.grupo
+          ? { label: m.grupo, color: GRUPO_COLORS[m.grupo] ?? "gray" }
+          : (GRUPOS_LEGACY[slug] ?? { label: "Sin grupo", color: "gray" });
 
         let herramientas = HERRAMIENTAS_DEFAULT[slug] ?? [];
         if (m.herramientas) {

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import modDb from "@/lib/modulos-db";
+import modDb    from "@/lib/modulos-db";
+import rubrosDb from "@/lib/rubros-db";
 
 // Metadata visual de cada módulo (icon + label para el sidebar)
 const META = {
@@ -18,13 +19,15 @@ export async function GET() {
   if (!session?.user) return NextResponse.json([]);
 
   try {
-    // Superadmin ve todos los módulos directamente
+    // Superadmin ve todos los módulos directamente desde la DB
     if (session.user.rol === "superadmin") {
+      const [mods] = await rubrosDb.query("SELECT slug, grupo FROM modulos ORDER BY id");
       return NextResponse.json(
-        MODULOS_SUPERADMIN.map(slug => ({
-          slug,
-          label: META[slug]?.label ?? slug,
-          icon:  META[slug]?.icon  ?? "bi-box",
+        mods.map(m => ({
+          slug:  m.slug,
+          label: META[m.slug]?.label ?? m.slug,
+          icon:  META[m.slug]?.icon  ?? "bi-box",
+          grupo: m.grupo ?? null,
         }))
       );
     }
@@ -41,11 +44,24 @@ export async function GET() {
       ORDER BY m.slug
     `, [session.user.tenant_id]);
 
+    // Obtener grupo de cada módulo desde rubros_molde
+    const slugs = rows.map(r => r.slug);
+    const grupoMap = {};
+    if (slugs.length > 0) {
+      const placeholders = slugs.map(() => "?").join(",");
+      const [grupoRows] = await rubrosDb.query(
+        `SELECT slug, grupo FROM modulos WHERE slug IN (${placeholders})`,
+        slugs
+      );
+      for (const r of grupoRows) grupoMap[r.slug] = r.grupo;
+    }
+
     return NextResponse.json(
       rows.map(row => ({
         slug:  row.slug,
         label: META[row.slug]?.label ?? row.slug,
         icon:  META[row.slug]?.icon  ?? "bi-box",
+        grupo: grupoMap[row.slug] ?? null,
       }))
     );
 

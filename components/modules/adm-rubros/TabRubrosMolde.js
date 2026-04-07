@@ -12,6 +12,8 @@ const ICONOS = {
   "adm-rubros": "bi-building",
 };
 
+const GRUPOS_DISPONIBLES = ["CRM", "Conexiones", "Administración"];
+
 function coverageColor(pct) {
   if (pct === 0)   return { bg: "#f1f5f9", text: "#94a3b8" };
   if (pct <= 0.33) return { bg: "#fef3c7", text: "#d97706" };
@@ -31,6 +33,7 @@ export default function TabRubrosMolde() {
   const [detalle,      setDetalle]      = useState(null); // { rubro, modulo }
   const [savingCell,   setSavingCell]   = useState(null);
   const [savedCell,    setSavedCell]    = useState(null);
+  const [editingGrupo, setEditingGrupo] = useState(null); // modulo id
 
   useEffect(() => { cargar(); }, []);
 
@@ -135,6 +138,21 @@ export default function TabRubrosMolde() {
     }
   }
 
+  async function actualizarGrupo(moduloId, nuevoGrupo) {
+    try {
+      await fetch("/api/adm-rubros/modulos", {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ id: moduloId, grupo: nuevoGrupo || null }),
+      });
+      setModulos(prev => prev.map(m => m.id === moduloId ? { ...m, grupo: nuevoGrupo || null } : m));
+    } catch (e) {
+      console.error("[actualizarGrupo]", e);
+    } finally {
+      setEditingGrupo(null);
+    }
+  }
+
   async function actualizarPrecio(planId, precio, moduloNombre) {
     try {
       await fetch("/api/adm-rubros/modulos-planes", {
@@ -212,9 +230,31 @@ export default function TabRubrosMolde() {
                 </th>
                 {modulos.map(m => (
                   <th key={m.id} style={{ padding: "12px 16px", textAlign: "center", borderBottom: "2px solid var(--border)", borderLeft: "1px solid var(--border)", background: "var(--bg-soft)", minWidth: 100 }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                      <i className={`bi ${ICONOS[m.nombre] ?? "bi-box-seam"}`} style={{ fontSize: 16, color: "var(--pr)" }} />
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                      <i className={`bi ${ICONOS[m.slug ?? m.nombre] ?? "bi-box-seam"}`} style={{ fontSize: 16, color: "var(--pr)" }} />
                       <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", textTransform: "capitalize" }}>{m.nombre}</span>
+                      {editingGrupo === m.id ? (
+                        <select
+                          autoFocus
+                          value={m.grupo ?? ""}
+                          onBlur={() => setEditingGrupo(null)}
+                          onChange={e => actualizarGrupo(m.id, e.target.value)}
+                          style={{ fontSize: 10, padding: "2px 4px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", cursor: "pointer" }}
+                        >
+                          <option value="">Sin grupo</option>
+                          {[...new Set([...GRUPOS_DISPONIBLES, ...(m.grupo && !GRUPOS_DISPONIBLES.includes(m.grupo) ? [m.grupo] : [])])].map(g => (
+                            <option key={g} value={g}>{g}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span
+                          onClick={() => setEditingGrupo(m.id)}
+                          title="Click para cambiar grupo"
+                          style={{ fontSize: 10, padding: "1px 7px", borderRadius: 20, background: "var(--bg)", border: "1px dashed var(--border)", color: "var(--sub)", cursor: "pointer", lineHeight: 1.8 }}
+                        >
+                          {m.grupo ?? "Sin grupo"}
+                        </span>
+                      )}
                     </div>
                   </th>
                 ))}

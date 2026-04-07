@@ -317,14 +317,20 @@ export default function DashboardLayout({ children }) {
           <SidebarLogo collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
 
           <nav className="sb-nav">
-            {navItems.length > 0 && (
-              <>
-                <div className="sb-nav__section">Principal</div>
-                {navItems.map(item => (
-                  <NavItem key={item.slug} item={item} />
-                ))}
-              </>
-            )}
+            {navItems.length > 0 && (() => {
+              const grupos = {};
+              for (const item of navItems) {
+                const g = item.grupo ?? "Principal";
+                if (!grupos[g]) grupos[g] = [];
+                grupos[g].push(item);
+              }
+              return Object.entries(grupos).map(([grupo, items]) => (
+                <div key={grupo}>
+                  <div className="sb-nav__section">{grupo}</div>
+                  {items.map(item => <NavItem key={item.slug} item={item} />)}
+                </div>
+              ));
+            })()}
           </nav>
 
           <ProfileButton
