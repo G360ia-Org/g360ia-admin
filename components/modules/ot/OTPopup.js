@@ -2,15 +2,21 @@
 
 import { useState, useEffect } from "react";
 
-const LIFECYCLE = [
-  { value: "recibido",       label: "Ingreso",      icon: "bi-inbox"        },
-  { value: "en_diagnostico", label: "Diagnóst.",    icon: "bi-search"       },
-  { value: "presupuestado",  label: "Presupuesto",  icon: "bi-receipt"      },
-  { value: "aprobado",       label: "Aprobado",     icon: "bi-check-circle" },
-  { value: "en_reparacion",  label: "Reparac.",     icon: "bi-tools"        },
-  { value: "listo",          label: "Listo",        icon: "bi-box-seam"     },
-  { value: "entregado",      label: "Entregado",    icon: "bi-bag-check"    },
-];
+// Metadatos fijos por slug — el ORDEN viene de la DB
+const ICON_MAP = {
+  recibido:       { icon: "bi-inbox",         label: "Ingreso"     },
+  en_diagnostico: { icon: "bi-search",        label: "Diagnóst."   },
+  presupuestado:  { icon: "bi-receipt",       label: "Presupuesto" },
+  aprobado:       { icon: "bi-check-circle",  label: "Aprobado"    },
+  en_reparacion:  { icon: "bi-tools",         label: "Reparac."    },
+  listo:          { icon: "bi-box-seam",      label: "Listo"       },
+  entregado:      { icon: "bi-bag-check",     label: "Entregado"   },
+};
+
+// Fallback estático mientras carga la DB
+const LIFECYCLE_DEFAULT = Object.entries(ICON_MAP).map(([value, meta]) => ({
+  value, ...meta,
+}));
 
 const LABEL_MAP = {
   recibido:       "Recibido",
@@ -42,11 +48,7 @@ const LOG_ICONS = {
   entregado:      { icon: "bi-bag-check",     color: "#506886" },
 };
 
-function nextEstado(current) {
-  const idx = LIFECYCLE.findIndex(s => s.value === current);
-  if (idx === -1 || idx === LIFECYCLE.length - 1) return null;
-  return LIFECYCLE[idx + 1].value;
-}
+// nextEstado se computa dentro del componente usando lifecycle dinámico
 
 function PrioridadDot({ p }) {
   if (!p || p === "normal") return null;
@@ -66,17 +68,30 @@ export default function OTPopup({ orden, rol, onClose, onActualizada }) {
   const [diasGar,   setDiasGar]   = useState("90");
   const [nota,      setNota]      = useState("");
   const [msg,       setMsg]       = useState("");
+  const [lifecycle, setLifecycle] = useState(LIFECYCLE_DEFAULT);
 
+  // Carga detalle y orden de estados en paralelo
   useEffect(() => {
-    fetch(`/api/ot/ordenes/${orden.id}`)
-      .then(r => r.json())
-      .then(d => { if (d.ok) setDetalle(d.orden); })
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch(`/api/ot/ordenes/${orden.id}`).then(r => r.json()),
+      fetch("/api/ot/estados-custom").then(r => r.json()),
+    ]).then(([det, est]) => {
+      if (det.ok) setDetalle(det.orden);
+      if (est.ok && est.estados?.length) {
+        setLifecycle(est.estados.map(e => ({
+          value: e.nombre,
+          label: ICON_MAP[e.nombre]?.label ?? e.nombre,
+          icon:  ICON_MAP[e.nombre]?.icon  ?? "bi-circle",
+        })));
+      }
+    }).finally(() => setLoading(false));
   }, [orden.id]);
 
   const estadoActual  = detalle?.estado ?? orden.estado;
-  const siguienteEst  = nextEstado(estadoActual);
-  const lcIndex       = LIFECYCLE.findIndex(s => s.value === estadoActual);
+  const lcIndex       = lifecycle.findIndex(s => s.value === estadoActual);
+  const siguienteEst  = (lcIndex === -1 || lcIndex === lifecycle.length - 1)
+    ? null
+    : lifecycle[lcIndex + 1].value;
   const garVigente    = detalle?.garantia?.estado === "vigente";
   const base          = typeof window !== "undefined" ? window.location.origin : "";
   const publicUrl     = detalle ? `${base}/ot/${detalle.token_publico}` : null;
@@ -160,7 +175,7 @@ export default function OTPopup({ orden, rol, onClose, onActualizada }) {
               {/* Lifecycle */}
               <div className="ot-drawer__sec">
                 <div className="ot-lifecycle">
-                  {LIFECYCLE.map((s, i) => {
+                  {lifecycle.map((s, i) => {
                     const done    = i < lcIndex;
                     const current = i === lcIndex;
                     return (

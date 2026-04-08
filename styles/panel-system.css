@@ -1211,6 +1211,7 @@
 .ot-state-item--over { border-color:var(--pr-light); background:var(--pr-pale); box-shadow:0 0 0 2px var(--pr-pale); }
 .ot-state-item__grip { color:var(--muted); font-size:14px; flex-shrink:0; }
 .ot-state-item__name { flex:1; font-size:13px; font-weight:600; color:var(--text2); }
+.ot-state-item__lock { color:var(--border2); font-size:13px; flex-shrink:0; }
 
 /* ============================================================
    FIN — panel-system.css — Gestión 360 iA v1.0
