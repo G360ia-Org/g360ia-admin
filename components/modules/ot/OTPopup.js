@@ -2,15 +2,25 @@
 
 import { useState, useEffect } from "react";
 
-const ESTADOS = [
-  { value: "recibido",       label: "Recibido"            },
-  { value: "en_diagnostico", label: "En diagnóstico"      },
-  { value: "presupuestado",  label: "Presupuestado"       },
-  { value: "aprobado",       label: "Aprobado"            },
-  { value: "en_reparacion",  label: "En reparación"       },
-  { value: "listo",          label: "Listo para entregar" },
-  { value: "entregado",      label: "Entregado"           },
+const LIFECYCLE = [
+  { value: "recibido",       label: "Ingreso",      icon: "bi-inbox"        },
+  { value: "en_diagnostico", label: "Diagnóst.",    icon: "bi-search"       },
+  { value: "presupuestado",  label: "Presupuesto",  icon: "bi-receipt"      },
+  { value: "aprobado",       label: "Aprobado",     icon: "bi-check-circle" },
+  { value: "en_reparacion",  label: "Reparac.",     icon: "bi-tools"        },
+  { value: "listo",          label: "Listo",        icon: "bi-box-seam"     },
+  { value: "entregado",      label: "Entregado",    icon: "bi-bag-check"    },
 ];
+
+const LABEL_MAP = {
+  recibido:       "Recibido",
+  en_diagnostico: "En diagnóstico",
+  presupuestado:  "Presupuestado",
+  aprobado:       "Aprobado",
+  en_reparacion:  "En reparación",
+  listo:          "Listo para retirar",
+  entregado:      "Entregado",
+};
 
 const BADGE_MAP = {
   recibido:       "ui-badge--blue",
@@ -22,282 +32,370 @@ const BADGE_MAP = {
   entregado:      "ui-badge--gray",
 };
 
+const LOG_ICONS = {
+  recibido:       { icon: "bi-inbox",         color: "#6b7280" },
+  en_diagnostico: { icon: "bi-search",        color: "#f59e0b" },
+  presupuestado:  { icon: "bi-receipt",       color: "#f59e0b" },
+  aprobado:       { icon: "bi-check-circle",  color: "#22c55e" },
+  en_reparacion:  { icon: "bi-tools",         color: "#3b82f6" },
+  listo:          { icon: "bi-box-seam",      color: "#22c55e" },
+  entregado:      { icon: "bi-bag-check",     color: "#506886" },
+};
+
+function nextEstado(current) {
+  const idx = LIFECYCLE.findIndex(s => s.value === current);
+  if (idx === -1 || idx === LIFECYCLE.length - 1) return null;
+  return LIFECYCLE[idx + 1].value;
+}
+
+function PrioridadDot({ p }) {
+  if (!p || p === "normal") return null;
+  return (
+    <span className={`ot-prio ot-prio--${p}`} style={{ marginLeft: 8 }}>
+      <span className="ot-prio__dot" />
+      {p === "urgente" ? "Urgente" : "Alta"}
+    </span>
+  );
+}
+
 export default function OTPopup({ orden, rol, onClose, onActualizada }) {
-  const [detalle,      setDetalle]      = useState(null);
-  const [loading,      setLoading]      = useState(true);
-  const [nuevoEstado,  setNuevoEstado]  = useState(orden.estado);
-  const [nota,         setNota]         = useState("");
-  const [cambiando,    setCambiando]    = useState(false);
-  const [pedirGar,     setPedirGar]     = useState(false);
-  const [diasGar,      setDiasGar]      = useState("");
-  const [msgEstado,    setMsgEstado]    = useState("");
+  const [detalle,   setDetalle]   = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [avanzando, setAvanzando] = useState(false);
+  const [pedirGar,  setPedirGar]  = useState(false);
+  const [diasGar,   setDiasGar]   = useState("90");
+  const [nota,      setNota]      = useState("");
+  const [msg,       setMsg]       = useState("");
 
   useEffect(() => {
     fetch(`/api/ot/ordenes/${orden.id}`)
       .then(r => r.json())
-      .then(d => {
-        if (d.ok) {
-          setDetalle(d.orden);
-          setNuevoEstado(d.orden.estado);
-        }
-      })
+      .then(d => { if (d.ok) setDetalle(d.orden); })
       .finally(() => setLoading(false));
   }, [orden.id]);
 
-  async function confirmarEstado() {
-    if (!nuevoEstado || nuevoEstado === detalle?.estado) return;
+  const estadoActual  = detalle?.estado ?? orden.estado;
+  const siguienteEst  = nextEstado(estadoActual);
+  const lcIndex       = LIFECYCLE.findIndex(s => s.value === estadoActual);
+  const garVigente    = detalle?.garantia?.estado === "vigente";
+  const base          = typeof window !== "undefined" ? window.location.origin : "";
+  const publicUrl     = detalle ? `${base}/ot/${detalle.token_publico}` : null;
+  const qrSrc         = publicUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(publicUrl)}&size=200x200`
+    : null;
 
-    // Si va a entregado y aún no pedimos días de garantía → mostrar input
-    if (nuevoEstado === "entregado" && !pedirGar) {
-      setPedirGar(true);
-      return;
-    }
-
-    setCambiando(true);
-    setMsgEstado("");
+  async function avanzar() {
+    if (!siguienteEst) return;
+    if (siguienteEst === "entregado" && !pedirGar) { setPedirGar(true); return; }
+    setAvanzando(true); setMsg("");
     try {
       const res = await fetch(`/api/ot/ordenes/${orden.id}/estado`, {
-        method:  "PATCH",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          estado:        nuevoEstado,
+        body: JSON.stringify({
+          estado:        siguienteEst,
           nota:          nota || null,
-          dias_garantia: nuevoEstado === "entregado" ? (parseInt(diasGar) || 0) : null,
+          dias_garantia: siguienteEst === "entregado" ? (parseInt(diasGar) || 0) : null,
         }),
       });
       const data = await res.json();
       if (data.ok) {
-        setDetalle(d => ({ ...d, estado: nuevoEstado }));
-        setPedirGar(false);
-        setDiasGar("");
-        setNota("");
-        setMsgEstado("Estado actualizado ✓");
+        setDetalle(d => ({ ...d, estado: siguienteEst }));
+        setPedirGar(false); setNota(""); setMsg("Estado actualizado ✓");
         onActualizada();
-      } else {
-        setMsgEstado(data.error || "Error al actualizar");
-      }
-    } finally {
-      setCambiando(false);
-    }
+      } else { setMsg(data.error || "Error"); }
+    } finally { setAvanzando(false); }
   }
 
-  const base      = typeof window !== "undefined" ? window.location.origin : "";
-  const publicUrl = detalle ? `${base}/ot/${detalle.token_publico}` : null;
-  const qrSrc     = publicUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(publicUrl)}&size=120x120`
-    : null;
-  const garVigente = detalle?.garantia?.estado === "vigente";
-  const wspGar     = garVigente && publicUrl
-    ? `https://wa.me/?text=${encodeURIComponent(`Garantía digital — ${detalle.numero_ot}:\n${publicUrl}`)}`
-    : null;
+  function notificar() {
+    if (!publicUrl) return;
+    const txt = garVigente
+      ? `Garantía digital — ${detalle.numero_ot}:\n${publicUrl}`
+      : `Seguí el estado de tu OT ${detalle.numero_ot}:\n${publicUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, "_blank");
+  }
 
   return (
-    <div className="pmodal-backdrop" onClick={onClose}>
-      <div className="pmodal pmodal--lg" onClick={e => e.stopPropagation()}>
+    <>
+      <div className="ot-drawer-bd" onClick={onClose} />
+      <div className="ot-drawer">
 
-        <div className="pmodal__header">
-          <div className="pmodal__title">
-            {loading ? "Cargando…" : `OT ${detalle?.numero_ot}`}
+        {/* ── Header ── */}
+        <div className="ot-drawer__hd">
+          <div className="ot-drawer__hd-meta">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="ot-drawer__num">{loading ? "Cargando…" : detalle?.numero_ot}</span>
+              {detalle && (
+                <span className={`ui-badge ${BADGE_MAP[estadoActual] || "ui-badge--gray"}`} style={{ fontSize: 10 }}>
+                  {LABEL_MAP[estadoActual] || estadoActual}
+                </span>
+              )}
+              {detalle && <PrioridadDot p={detalle.prioridad} />}
+            </div>
             {detalle && (
-              <span className={`ui-badge ${BADGE_MAP[detalle.estado] || "ui-badge--gray"}`}
-                style={{ marginLeft: 10, fontSize: 11 }}>
-                {ESTADOS.find(e => e.value === detalle.estado)?.label || detalle.estado}
+              <span className="ot-drawer__date">
+                Ingresada {new Date(detalle.creado_en).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })}
               </span>
             )}
           </div>
-          <button className="pmodal__close" onClick={onClose}>
-            <i className="bi bi-x-lg" />
-          </button>
+          <div className="ot-drawer__hd-actions">
+            {qrSrc && (
+              <a href={publicUrl} target="_blank" rel="noreferrer" title="Ver página pública">
+                <i className="bi bi-qr-code" style={{ fontSize: 18, color: "var(--muted)", cursor: "pointer" }} />
+              </a>
+            )}
+            <button className="pmodal__close" onClick={onClose}><i className="bi bi-x-lg" /></button>
+          </div>
         </div>
 
-        <div className="pmodal__body">
+        {/* ── Body ── */}
+        <div className="ot-drawer__body">
           {loading ? (
-            <div className="ui-empty">
+            <div className="ui-empty" style={{ padding: 48 }}>
               <div className="ui-empty__icon"><i className="bi bi-arrow-repeat" /></div>
               <div className="ui-empty__text">Cargando…</div>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <>
+              {/* Lifecycle */}
+              <div className="ot-drawer__sec">
+                <div className="ot-lifecycle">
+                  {LIFECYCLE.map((s, i) => {
+                    const done    = i < lcIndex;
+                    const current = i === lcIndex;
+                    return (
+                      <div key={s.value} className={`ot-lc-step${done ? " ot-lc-step--done" : ""}`}>
+                        <div className={`ot-lc-dot${done ? " ot-lc-dot--done" : current ? " ot-lc-dot--current" : ""}`}>
+                          <i className={`bi ${s.icon}`} />
+                        </div>
+                        <div className={`ot-lc-label${done ? " ot-lc-label--done" : current ? " ot-lc-label--current" : ""}`}>
+                          {s.label}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-              {/* Datos del equipo */}
-              <div>
-                <div style={sTitle}><i className="bi bi-cpu" style={{ marginRight: 6 }} />Equipo</div>
-                <Row label="Tipo"         val={detalle.equipo_tipo} />
-                <Row label="Marca / Modelo" val={`${detalle.equipo_marca || ""} ${detalle.equipo_modelo || ""}`.trim() || "—"} />
-                {detalle.equipo_serie && <Row label="Serie / IMEI" val={detalle.equipo_serie} />}
-                <Row label="Problema" val={detalle.problema_reportado} />
-                {detalle.diagnostico && <Row label="Diagnóstico" val={detalle.diagnostico} />}
-                {detalle.presupuesto_total && (
-                  <Row label="Presupuesto" val={`$${parseFloat(detalle.presupuesto_total).toLocaleString("es-AR")}`} />
+              {/* Cliente + equipo */}
+              <div className="ot-drawer__sec">
+                {detalle.cliente_nombre && (
+                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{detalle.cliente_nombre}</div>
                 )}
-                <Row label="Ingreso" val={new Date(detalle.creado_en).toLocaleDateString("es-AR")} />
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>
+                  {[detalle.equipo_marca, detalle.equipo_modelo].filter(Boolean).join(" ") || detalle.equipo_tipo}
+                </div>
+                {detalle.equipo_serie && (
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>S/N: {detalle.equipo_serie}</div>
+                )}
+                <div style={{ fontSize: 12, color: "var(--sub)", marginTop: 8, fontStyle: "italic" }}>
+                  {detalle.problema_reportado}
+                </div>
+              </div>
+
+              {/* Info general */}
+              <div className="ot-drawer__sec">
+                <div className="ot-drawer__sec-title"><i className="bi bi-info-circle" />Información general</div>
+                <InfoRow label="Estado"      val={LABEL_MAP[estadoActual] || estadoActual} />
+                {detalle.prioridad && detalle.prioridad !== "normal" && (
+                  <InfoRow label="Prioridad"   val={detalle.prioridad === "urgente" ? "Urgente" : "Alta"} />
+                )}
+                {detalle.tecnico_nombre && <InfoRow label="Técnico"     val={detalle.tecnico_nombre} />}
+                {detalle.entrega_estimada && (
+                  <InfoRow label="Entrega est." val={new Date(detalle.entrega_estimada).toLocaleDateString("es-AR")} />
+                )}
+                {detalle.canal_ingreso && <InfoRow label="Canal ingreso" val={detalle.canal_ingreso} />}
                 {detalle.entrega_fecha && (
-                  <Row label="Entregado" val={new Date(detalle.entrega_fecha).toLocaleDateString("es-AR")} />
+                  <InfoRow label="Entregado"   val={new Date(detalle.entrega_fecha).toLocaleDateString("es-AR")} />
                 )}
               </div>
 
+              {/* Presupuesto */}
+              {(detalle.items?.length > 0 || detalle.presupuesto_total) && (
+                <div className="ot-drawer__sec">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div className="ot-drawer__sec-title" style={{ marginBottom: 0 }}>
+                      <i className="bi bi-receipt" />Presupuesto
+                    </div>
+                    {detalle.estado === "aprobado" && (
+                      <span className="ui-badge ui-badge--green" style={{ fontSize: 10 }}>Aprobado</span>
+                    )}
+                  </div>
+                  {detalle.items?.map((it, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: "var(--divider)", color: "var(--text2)" }}>
+                      <span>{it.descripcion} {it.cantidad !== 1 ? `×${it.cantidad}` : ""}</span>
+                      <span style={{ fontWeight: 600 }}>${parseFloat(it.precio * it.cantidad).toLocaleString("es-AR")}</span>
+                    </div>
+                  ))}
+                  {detalle.presupuesto_total && (
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontWeight: 700, fontSize: 14, color: "var(--pr)" }}>
+                      <span>Total</span>
+                      <span>${parseFloat(detalle.presupuesto_total).toLocaleString("es-AR")}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Garantía */}
               {detalle.garantia && (
-                <div style={{ background: garVigente ? "var(--em-pale)" : "var(--bg-soft)", borderRadius: 10, padding: 14 }}>
-                  <div style={sTitle}>
-                    <i className="bi bi-shield-check" style={{ marginRight: 6, color: garVigente ? "var(--em)" : "var(--sub)" }} />
+                <div className="ot-drawer__sec">
+                  <div className="ot-drawer__sec-title">
+                    <i className="bi bi-shield-check" style={{ color: garVigente ? "var(--em,#22c55e)" : "var(--muted)" }} />
                     Garantía
-                    <span className={`ui-badge ${garVigente ? "ui-badge--green" : "ui-badge--gray"}`} style={{ marginLeft: 8, fontSize: 10 }}>
+                    <span className={`ui-badge ${garVigente ? "ui-badge--green" : "ui-badge--gray"}`} style={{ fontSize: 10, marginLeft: 6 }}>
                       {detalle.garantia.estado}
                     </span>
                   </div>
                   {garVigente && (
                     <>
-                      <Row label="Período" val={`${detalle.garantia.dias_garantia} días`} />
-                      <Row label="Válida hasta" val={new Date(detalle.garantia.fecha_vence).toLocaleDateString("es-AR")} />
+                      <InfoRow label="Período"     val={`${detalle.garantia.dias_garantia} días`} />
+                      <InfoRow label="Válida hasta" val={new Date(detalle.garantia.fecha_vence).toLocaleDateString("es-AR")} />
                     </>
                   )}
                   {detalle.garantia.motivo_anulacion && (
-                    <Row label="Motivo anulación" val={detalle.garantia.motivo_anulacion} />
+                    <InfoRow label="Motivo anulación" val={detalle.garantia.motivo_anulacion} />
                   )}
                 </div>
               )}
 
-              {/* QR + WhatsApp */}
+              {/* QR */}
               {qrSrc && (
-                <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "14px 0", borderTop: "var(--divider)", borderBottom: "var(--divider)" }}>
-                  <img
-                    src={qrSrc}
-                    alt="QR"
-                    style={{ width: 80, height: 80, borderRadius: 8, border: "1px solid var(--border)", flexShrink: 0 }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)", marginBottom: 4 }}>
-                      Archivo digital de la OT
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--muted)", wordBreak: "break-all", marginBottom: 8 }}>
-                      {publicUrl}
-                    </div>
-                    {wspGar ? (
-                      <a href={wspGar} target="_blank" rel="noreferrer" className="ui-btn ui-btn--primary ui-btn--sm">
-                        <i className="bi bi-whatsapp" style={{ marginRight: 4 }} />Enviar garantía por WhatsApp
+                <div className="ot-drawer__sec">
+                  <div className="ot-drawer__sec-title"><i className="bi bi-qr-code" />Archivo digital</div>
+                  <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                    <img src={qrSrc} alt="QR" style={{ width: 80, height: 80, borderRadius: 8, border: "1px solid var(--border)", flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, color: "var(--muted)", wordBreak: "break-all", marginBottom: 8 }}>{publicUrl}</div>
+                      <a href={publicUrl} target="_blank" rel="noreferrer" className="ui-btn ui-btn--secondary ui-btn--sm">
+                        <i className="bi bi-box-arrow-up-right" style={{ marginRight: 4 }} />Abrir página
                       </a>
-                    ) : (
-                      <span style={{ fontSize: 11, color: "var(--muted)" }}>
-                        WhatsApp disponible cuando la garantía esté vigente
-                      </span>
-                    )}
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Cambiar estado */}
-              <div>
-                <div style={sTitle}><i className="bi bi-arrow-left-right" style={{ marginRight: 6 }} />Cambiar estado</div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-                  <select
-                    className="ui-select"
-                    style={{ flex: 1, minWidth: 180 }}
-                    value={nuevoEstado}
-                    onChange={e => { setNuevoEstado(e.target.value); setPedirGar(false); setMsgEstado(""); }}
-                  >
-                    {ESTADOS.map(e => (
-                      <option key={e.value} value={e.value}>{e.label}</option>
-                    ))}
-                  </select>
-                  <button
-                    className="ui-btn ui-btn--primary ui-btn--sm"
-                    onClick={confirmarEstado}
-                    disabled={cambiando || nuevoEstado === detalle?.estado}
-                  >
-                    {cambiando ? "Guardando…" : "Confirmar"}
-                  </button>
-                </div>
-
-                {/* Input garantía al entregar */}
-                {pedirGar && nuevoEstado === "entregado" && (
-                  <div style={{ marginTop: 12, padding: 14, background: "var(--bg-soft)", borderRadius: 10 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: "var(--text2)" }}>
-                      <i className="bi bi-shield-check" style={{ marginRight: 6, color: "var(--em)" }} />
-                      ¿Aplicar garantía? (0 = sin garantía)
+              {/* Avanzar estado */}
+              {siguienteEst && (
+                <div className="ot-drawer__sec">
+                  <div className="ot-drawer__sec-title"><i className="bi bi-arrow-right-circle" />Avanzar estado</div>
+                  {pedirGar ? (
+                    <div style={{ background: "var(--bg-soft)", borderRadius: 10, padding: 14 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
+                        <i className="bi bi-shield-check" style={{ marginRight: 6, color: "var(--em,#22c55e)" }} />
+                        Días de garantía (0 = sin garantía)
+                      </div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                        <input
+                          className="ui-input" type="number" min="0" placeholder="Ej: 90"
+                          value={diasGar} onChange={e => setDiasGar(e.target.value)}
+                          style={{ maxWidth: 140 }}
+                        />
+                        <button className="ui-btn ui-btn--primary ui-btn--sm" onClick={avanzar} disabled={avanzando}>
+                          {avanzando ? "Guardando…" : "Confirmar entrega"}
+                        </button>
+                        <button className="ui-btn ui-btn--secondary ui-btn--sm" onClick={() => setPedirGar(false)}>Cancelar</button>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <input
-                        className="ui-input"
-                        type="number"
-                        min="0"
-                        placeholder="Días de garantía"
-                        value={diasGar}
-                        onChange={e => setDiasGar(e.target.value)}
-                        style={{ maxWidth: 200 }}
-                      />
-                      <button
-                        className="ui-btn ui-btn--primary ui-btn--sm"
-                        onClick={confirmarEstado}
-                        disabled={cambiando}
-                      >
-                        {cambiando ? "Guardando…" : "Confirmar entrega"}
+                  ) : (
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 13, color: "var(--sub)" }}>
+                        Siguiente: <strong style={{ color: "var(--pr)" }}>{LABEL_MAP[siguienteEst]}</strong>
+                      </div>
+                      <button className="ui-btn ui-btn--primary ui-btn--sm" onClick={avanzar} disabled={avanzando}>
+                        {avanzando ? "Guardando…" : <><i className="bi bi-arrow-right" style={{ marginRight: 4 }} />Avanzar</>}
                       </button>
                     </div>
+                  )}
+                  <div style={{ marginTop: 10 }}>
+                    <input
+                      className="ui-input" placeholder="Nota del cambio (opcional)"
+                      value={nota} onChange={e => setNota(e.target.value)}
+                    />
                   </div>
-                )}
-
-                {/* Nota */}
-                <div style={{ marginTop: 10 }}>
-                  <input
-                    className="ui-input"
-                    placeholder="Nota del cambio (opcional)"
-                    value={nota}
-                    onChange={e => setNota(e.target.value)}
-                  />
+                  {msg && (
+                    <div style={{ marginTop: 8, fontSize: 13, color: msg.includes("✓") ? "var(--em,#22c55e)" : "#dc2626" }}>{msg}</div>
+                  )}
                 </div>
+              )}
 
-                {msgEstado && (
-                  <div style={{ marginTop: 8, fontSize: 13, color: msgEstado.includes("✓") ? "var(--em)" : "var(--alert, #dc2626)" }}>
-                    {msgEstado}
-                  </div>
-                )}
-              </div>
-
-              {/* Log de estados */}
+              {/* Historial */}
               {detalle.log?.length > 0 && (
-                <div>
-                  <div style={sTitle}><i className="bi bi-clock-history" style={{ marginRight: 6 }} />Historial de estados</div>
+                <div className="ot-drawer__sec">
+                  <div className="ot-drawer__sec-title"><i className="bi bi-clock-history" />Historial de cambios</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                    {detalle.log.map((l, i) => (
-                      <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderBottom: "var(--divider)", fontSize: 13, alignItems: "baseline" }}>
-                        <span style={{ color: "var(--muted)", fontSize: 11, minWidth: 80 }}>
-                          {new Date(l.creado_en).toLocaleDateString("es-AR")}
-                        </span>
-                        <span style={{ color: "var(--sub)" }}>{l.estado_anterior || "—"}</span>
-                        <i className="bi bi-arrow-right" style={{ fontSize: 10, color: "var(--muted)" }} />
-                        <span style={{ fontWeight: 600, color: "var(--pr)" }}>{l.estado_actual}</span>
-                        {l.nota && (
-                          <span style={{ color: "var(--sub)", fontStyle: "italic", fontSize: 12 }}>— {l.nota}</span>
-                        )}
-                      </div>
-                    ))}
+                    {[...detalle.log].reverse().map((l, i) => {
+                      const meta = LOG_ICONS[l.estado_actual] ?? { icon: "bi-circle", color: "#6b7280" };
+                      return (
+                        <div key={i} style={{ display: "flex", gap: 12, padding: "9px 0", borderBottom: "var(--divider)", alignItems: "flex-start" }}>
+                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${meta.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            <i className={`bi ${meta.icon}`} style={{ fontSize: 12, color: meta.color }} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>
+                              {LABEL_MAP[l.estado_actual] || l.estado_actual}
+                              {l.estado_anterior && (
+                                <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400, marginLeft: 6 }}>
+                                  desde {LABEL_MAP[l.estado_anterior] || l.estado_anterior}
+                                </span>
+                              )}
+                            </div>
+                            {l.nota && <div style={{ fontSize: 12, color: "var(--sub)", marginTop: 2, fontStyle: "italic" }}>{l.nota}</div>}
+                            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
+                              {new Date(l.creado_en).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
+                              {" — "}
+                              {new Date(l.creado_en).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-            </div>
+              {/* Adjuntos placeholder */}
+              <div className="ot-drawer__sec">
+                <div className="ot-drawer__sec-title"><i className="bi bi-paperclip" />Adjuntos</div>
+                {detalle.foto_url ? (
+                  <a href={detalle.foto_url} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: "var(--pr)" }}>
+                    <i className="bi bi-image" style={{ marginRight: 4 }} />Ver foto del equipo
+                  </a>
+                ) : (
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>Sin adjuntos</div>
+                )}
+              </div>
+            </>
           )}
         </div>
+
+        {/* ── Footer ── */}
+        {!loading && (
+          <div className="ot-drawer__footer">
+            {siguienteEst && !pedirGar && (
+              <button className="ui-btn ui-btn--primary" style={{ flex: 1 }} onClick={avanzar} disabled={avanzando}>
+                <i className="bi bi-arrow-right-circle" style={{ marginRight: 6 }} />
+                {avanzando ? "Guardando…" : `Avanzar a ${LABEL_MAP[siguienteEst]}`}
+              </button>
+            )}
+            <button
+              className="ui-btn ui-btn--secondary"
+              style={{ flex: siguienteEst ? "0 0 auto" : 1 }}
+              onClick={notificar}
+            >
+              <i className="bi bi-whatsapp" style={{ marginRight: 6 }} />Notificar
+            </button>
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }
 
-function Row({ label, val }) {
+function InfoRow({ label, val }) {
   return (
-    <div style={{ display: "flex", padding: "6px 0", borderBottom: "var(--divider)", fontSize: 13, gap: 12 }}>
-      <span style={{ color: "var(--sub)", minWidth: 120, flexShrink: 0 }}>{label}</span>
+    <div style={{ display: "flex", padding: "5px 0", borderBottom: "var(--divider)", fontSize: 13, gap: 12 }}>
+      <span style={{ color: "var(--sub)", minWidth: 110, flexShrink: 0 }}>{label}</span>
       <span style={{ color: "var(--text)", fontWeight: 500 }}>{val || "—"}</span>
     </div>
   );
 }
-
-const sTitle = {
-  fontWeight: 700,
-  fontSize: 13,
-  color: "var(--text2)",
-  marginBottom: 8,
-  display: "flex",
-  alignItems: "center",
-};

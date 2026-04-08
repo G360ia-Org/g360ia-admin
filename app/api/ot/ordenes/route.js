@@ -8,9 +8,10 @@ import { randomUUID }  from "crypto";
 // ── GET — lista de OTs con filtros opcionales ─────────────────────────────────
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
-  const estado = searchParams.get("estado");
-  const buscar = searchParams.get("q");
-  const serie  = searchParams.get("serie");
+  const estado    = searchParams.get("estado");
+  const prioridad = searchParams.get("prioridad");
+  const buscar    = searchParams.get("q");
+  const serie     = searchParams.get("serie");
 
   try {
     let query    = "SELECT * FROM ot_ordenes WHERE 1=1";
@@ -20,10 +21,14 @@ export async function GET(req) {
       query += " AND estado = ?";
       params.push(estado);
     }
+    if (prioridad) {
+      query += " AND prioridad = ?";
+      params.push(prioridad);
+    }
     if (buscar) {
-      query += " AND (numero_ot LIKE ? OR equipo_marca LIKE ? OR equipo_modelo LIKE ?)";
+      query += " AND (numero_ot LIKE ? OR cliente_nombre LIKE ? OR equipo_marca LIKE ? OR equipo_modelo LIKE ? OR tecnico_nombre LIKE ?)";
       const like = `%${buscar}%`;
-      params.push(like, like, like);
+      params.push(like, like, like, like, like);
     }
     if (serie) {
       query += " AND (equipo_serie LIKE ? OR equipo_modelo LIKE ? OR equipo_marca LIKE ?)";
@@ -46,13 +51,17 @@ export async function POST(req) {
   try {
     const {
       numero_ot,
-      cliente_id,
+      cliente_nombre,
       equipo_tipo,
       equipo_marca,
       equipo_modelo,
       equipo_serie,
       problema_reportado,
       foto_url,
+      prioridad,
+      canal_ingreso,
+      entrega_estimada,
+      tecnico_nombre,
     } = await req.json();
 
     if (!numero_ot?.trim())
@@ -75,20 +84,25 @@ export async function POST(req) {
 
     const [result] = await modulosDb.query(
       `INSERT INTO ot_ordenes
-         (numero_ot, token_publico, cliente_id,
+         (numero_ot, token_publico, cliente_nombre,
           equipo_tipo, equipo_marca, equipo_modelo, equipo_serie,
-          problema_reportado, foto_url, estado)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'recibido')`,
+          problema_reportado, foto_url, estado,
+          prioridad, canal_ingreso, entrega_estimada, tecnico_nombre)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'recibido', ?, ?, ?, ?)`,
       [
         numero_ot.trim(),
         token_publico,
-        cliente_id          || null,
+        cliente_nombre      || null,
         equipo_tipo.trim(),
         equipo_marca        || null,
         equipo_modelo       || null,
         equipo_serie        || null,
         problema_reportado.trim(),
         foto_url            || null,
+        prioridad           || "normal",
+        canal_ingreso       || null,
+        entrega_estimada    || null,
+        tecnico_nombre      || null,
       ]
     );
 

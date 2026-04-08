@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const BADGE_MAP = {
   recibido:       "ui-badge--blue",
@@ -18,32 +18,35 @@ const LABEL_MAP = {
   presupuestado:  "Presupuestado",
   aprobado:       "Aprobado",
   en_reparacion:  "En reparación",
-  listo:          "Listo",
+  listo:          "Listo para retirar",
   entregado:      "Entregado",
 };
 
-export default function TabHistorial({ tenant_id }) {
+export default function TabHistorial() {
   const [query,   setQuery]   = useState("");
   const [ordenes, setOrdenes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [buscado, setBuscado] = useState(false);
 
-  const buscar = useCallback(async () => {
-    if (!query.trim()) return;
+  const buscar = useCallback(async (q) => {
+    const term = (q ?? query).trim();
+    if (!term) return;
     setLoading(true);
     setBuscado(true);
     try {
-      const res  = await fetch(`/api/ot/ordenes?serie=${encodeURIComponent(query.trim())}`);
+      const res  = await fetch(`/api/ot/ordenes?serie=${encodeURIComponent(term)}`);
       const data = await res.json();
-      if (data.ok) setOrdenes(data.ordenes);
-    } finally {
-      setLoading(false);
-    }
+      if (data.ok) setOrdenes(data.ordenes ?? []);
+    } catch { setOrdenes([]); }
+    finally  { setLoading(false); }
   }, [query]);
 
-  function onKeyDown(e) {
-    if (e.key === "Enter") buscar();
-  }
+  // Auto-buscar con debounce al escribir
+  useEffect(() => {
+    if (!query.trim()) { setOrdenes([]); setBuscado(false); return; }
+    const t = setTimeout(() => buscar(query), 400);
+    return () => clearTimeout(t);
+  }, [query]);
 
   return (
     <div>
@@ -53,22 +56,20 @@ export default function TabHistorial({ tenant_id }) {
         </div>
         <div className="ui-card__body">
 
-          {/* Buscador */}
           <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
             <input
               className="ui-input"
-              style={{ flex: 1, maxWidth: 360 }}
+              style={{ flex: 1, maxWidth: 400 }}
               placeholder="N° de serie, IMEI, marca o modelo…"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              onKeyDown={onKeyDown}
+              onKeyDown={e => e.key === "Enter" && buscar()}
             />
-            <button className="ui-btn ui-btn--primary ui-btn--sm" onClick={buscar}>
+            <button className="ui-btn ui-btn--primary ui-btn--sm" onClick={() => buscar()}>
               <i className="bi bi-search" style={{ marginRight: 4 }} />Buscar
             </button>
           </div>
 
-          {/* Resultados */}
           {loading ? (
             <div className="ui-empty">
               <div className="ui-empty__icon"><i className="bi bi-arrow-repeat" /></div>
@@ -89,6 +90,7 @@ export default function TabHistorial({ tenant_id }) {
                 <thead>
                   <tr>
                     <th>N° OT</th>
+                    <th>Cliente</th>
                     <th>Equipo</th>
                     <th>Problema</th>
                     <th>Estado</th>
@@ -98,15 +100,18 @@ export default function TabHistorial({ tenant_id }) {
                 <tbody>
                   {ordenes.map(o => (
                     <tr key={o.id}>
-                      <td style={{ fontWeight: 700, fontFamily: "monospace" }}>{o.numero_ot}</td>
+                      <td style={{ fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--pr)", fontSize: 12 }}>
+                        {o.numero_ot}
+                      </td>
+                      <td style={{ fontSize: 13 }}>{o.cliente_nombre || <span style={{ color: "var(--muted)" }}>—</span>}</td>
                       <td>
-                        <div style={{ fontWeight: 600 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>
                           {[o.equipo_marca, o.equipo_modelo].filter(Boolean).join(" ") || "—"}
                         </div>
                         <div style={{ fontSize: 11, color: "var(--sub)" }}>{o.equipo_tipo}</div>
                       </td>
-                      <td style={{ fontSize: 12, color: "var(--text2)", maxWidth: 220 }}>
-                        {o.problema_reportado}
+                      <td style={{ fontSize: 12, color: "var(--text2)", maxWidth: 200 }}>
+                        {o.problema_reportado?.slice(0, 60)}{(o.problema_reportado?.length ?? 0) > 60 ? "…" : ""}
                       </td>
                       <td>
                         <span className={`ui-badge ${BADGE_MAP[o.estado] || "ui-badge--gray"}`}>
