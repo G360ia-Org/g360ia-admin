@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
 const TabIdentidad   = dynamic(() => import('./TabIdentidad'),   { ssr: false });
@@ -11,13 +11,13 @@ const TabGaleria     = dynamic(() => import('./TabGaleria'),     { ssr: false })
 const TabFacturacion = dynamic(() => import('./TabFacturacion'), { ssr: false });
 
 const TABS = [
-  { id: 'identidad',   label: 'Identidad',           icon: 'bi-shop' },
-  { id: 'ubicacion',   label: 'Ubicación y Contacto', icon: 'bi-geo-alt' },
-  { id: 'horarios',    label: 'Horarios',             icon: 'bi-clock' },
-  { id: 'redes',       label: 'Redes Sociales',       icon: 'bi-share' },
-  { id: 'ia',          label: 'Config. IA',           icon: 'bi-stars' },
-  { id: 'galeria',     label: 'Galería',              icon: 'bi-images' },
-  { id: 'facturacion', label: 'Facturación',          icon: 'bi-receipt' },
+  { id: 'identidad',   label: 'Identidad',           icon: 'bi-shop',    idx: 0 },
+  { id: 'ubicacion',   label: 'Ubicación y Contacto', icon: 'bi-geo-alt', idx: 1 },
+  { id: 'horarios',    label: 'Horarios',             icon: 'bi-clock',   idx: 2 },
+  { id: 'redes',       label: 'Redes Sociales',       icon: 'bi-share',   idx: 3 },
+  { id: 'ia',          label: 'Configuración IA',     icon: 'bi-stars',   idx: 4 },
+  { id: 'galeria',     label: 'Galería',              icon: 'bi-images',  idx: 5 },
+  { id: 'facturacion', label: 'Facturación',          icon: 'bi-receipt', idx: 6 },
 ];
 
 const TAB_COMPONENTS = {
@@ -30,13 +30,36 @@ const TAB_COMPONENTS = {
   facturacion: TabFacturacion,
 };
 
+const NOOP = () => {};
+
 export default function MiNegocioModule({ ctx }) {
+  const [activeIdx, setActiveIdx]           = useState(0);
   const [activeTab, setActiveTab]           = useState('identidad');
   const [saveTrigger, setSaveTrigger]       = useState(0);
   const [discardTrigger, setDiscardTrigger] = useState(0);
   const [toast, setToast]                   = useState(null);
   const [completitud, setCompletitud]       = useState(0);
   const [lastSaved, setLastSaved]           = useState(null);
+  const [indicator, setIndicator]           = useState({ left: 0, width: 0 });
+  const tabsRef = useRef(null);
+
+  const updateIndicator = useCallback(() => {
+    if (!tabsRef.current) return;
+    const btn = tabsRef.current.querySelector('[data-active="true"]');
+    if (!btn) return;
+    setIndicator({ left: btn.offsetLeft, width: btn.offsetWidth });
+  }, []);
+
+  // Actualizar indicador al montar y al cambiar tab
+  useEffect(() => {
+    const frame = requestAnimationFrame(updateIndicator);
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab, updateIndicator]);
+
+  const handleTabClick = useCallback((tab) => {
+    setActiveTab(tab.id);
+    setActiveIdx(tab.idx);
+  }, []);
 
   const showToast = useCallback((msg, type = 'ok') => {
     setToast({ msg, type });
@@ -74,8 +97,6 @@ export default function MiNegocioModule({ ctx }) {
     ? `Perfil al ${completitud}% — seguí completando para mejores respuestas de IA`
     : `Perfil completo al ${completitud}% — tu asistente IA está bien configurado`;
 
-  const ActiveTab = TAB_COMPONENTS[activeTab];
-
   return (
     <div className="neg-module-wrap">
 
@@ -94,29 +115,48 @@ export default function MiNegocioModule({ ctx }) {
         </button>
       </div>
 
-      {/* Barra de tabs */}
-      <div className="ui-tabs">
+      {/* Barra de tabs con indicador deslizante */}
+      <div
+        ref={tabsRef}
+        className="ui-tabs ui-tabs--sliding"
+        style={{ "--tab-ind-left": `${indicator.left}px`, "--tab-ind-w": `${indicator.width}px` }}
+      >
         {TABS.map(t => (
           <button
             key={t.id}
+            data-active={activeTab === t.id ? "true" : "false"}
             className={`ui-tab${activeTab === t.id ? ' ui-tab--active' : ''}`}
-            onClick={() => setActiveTab(t.id)}
+            onClick={() => handleTabClick(t)}
           >
             <i className={`bi ${t.icon}`} /> {t.label}
           </button>
         ))}
+        <div className="ui-tab-indicator" />
       </div>
 
-      {/* Cuerpo del tab activo */}
-      <div className="neg-tabs-scroll">
-        <ActiveTab
-          ctx={ctx}
-          saveTrigger={saveTrigger}
-          discardTrigger={discardTrigger}
-          onSaveResult={handleSaveResult}
-          onDiscardResult={handleDiscardResult}
-          onCompletitudChange={activeTab === 'identidad' ? setCompletitud : undefined}
-        />
+      {/* Carrusel de tabs */}
+      <div className="mod-tab-slider">
+        <div
+          className="mod-tab-track"
+          style={{ "--mod-tab-offset": `${activeIdx * 100}%` }}
+        >
+          {TABS.map(t => {
+            const Tab = TAB_COMPONENTS[t.id];
+            const isActive = t.id === activeTab;
+            return (
+              <div key={t.id} className="mod-tab-panel">
+                <Tab
+                  ctx={ctx}
+                  saveTrigger={isActive ? saveTrigger : 0}
+                  discardTrigger={isActive ? discardTrigger : 0}
+                  onSaveResult={isActive ? handleSaveResult : NOOP}
+                  onDiscardResult={isActive ? handleDiscardResult : NOOP}
+                  onCompletitudChange={t.id === 'identidad' ? setCompletitud : undefined}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Footer fijo */}
@@ -134,7 +174,7 @@ export default function MiNegocioModule({ ctx }) {
         </div>
       </div>
 
-      {/* Toast de notificación */}
+      {/* Toast */}
       {toast && (
         <div className={`neg-toast neg-toast--${toast.type}`}>
           <i className={`bi ${
