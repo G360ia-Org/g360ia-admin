@@ -17,6 +17,21 @@ export async function GET() {
   }
 }
 
+// ── PUT — guardar nuevo orden (drag & drop) ───────────────────────────────────
+export async function PUT(req) {
+  try {
+    const { orden } = await req.json(); // array de IDs en el nuevo orden
+    if (!Array.isArray(orden)) return NextResponse.json({ ok: false, error: "Formato inválido" }, { status: 400 });
+    await Promise.all(
+      orden.map((id, i) => modulosDb.query("UPDATE ot_estados_custom SET orden = ? WHERE id = ?", [i, id]))
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("ot/estados-custom PUT:", err);
+    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  }
+}
+
 // ── POST — crear estado personalizado ────────────────────────────────────────
 export async function POST(req) {
   try {

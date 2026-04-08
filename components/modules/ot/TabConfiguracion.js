@@ -1,26 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
-const COLORES = [
-  { value: "#6b7280", label: "Gris"     },
-  { value: "#3b82f6", label: "Azul"     },
-  { value: "#10b981", label: "Esmeralda"},
-  { value: "#22c55e", label: "Verde"    },
-  { value: "#f59e0b", label: "Ámbar"   },
-  { value: "#f97316", label: "Naranja"  },
-  { value: "#ef4444", label: "Rojo"     },
-  { value: "#8b5cf6", label: "Violeta"  },
-];
+const MAX_ESTADOS = 7;
 
 export default function TabConfiguracion() {
-  const [estados,   setEstados]   = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [nombre,    setNombre]    = useState("");
-  const [color,     setColor]     = useState("#3b82f6");
-  const [guardando, setGuardando] = useState(false);
-  const [msg,       setMsg]       = useState("");
+  const [estados,    setEstados]    = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [nombre,     setNombre]     = useState("");
+  const [guardando,  setGuardando]  = useState(false);
+  const [msg,        setMsg]        = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const [dragOver,   setDragOver]   = useState(null);
+  const dragIdx = useRef(null);
 
   async function cargar() {
     setLoading(true);
@@ -35,17 +27,17 @@ export default function TabConfiguracion() {
 
   async function agregar(e) {
     e.preventDefault();
-    if (!nombre.trim()) return;
+    if (!nombre.trim() || estados.length >= MAX_ESTADOS) return;
     setGuardando(true); setMsg("");
     try {
       const res  = await fetch("/api/ot/estados-custom", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ nombre: nombre.trim(), color, orden: estados.length }),
+        body:    JSON.stringify({ nombre: nombre.trim(), orden: estados.length }),
       });
       const data = await res.json();
       if (data.ok) {
-        setNombre(""); setColor("#3b82f6");
+        setNombre("");
         setMsg("Estado agregado ✓");
         cargar();
       } else {
@@ -62,9 +54,38 @@ export default function TabConfiguracion() {
     } finally { setDeletingId(null); }
   }
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 580 }}>
+  function onDragStart(i) {
+    dragIdx.current = i;
+  }
 
+  function onDragOver(e, i) {
+    e.preventDefault();
+    setDragOver(i);
+  }
+
+  async function onDrop(i) {
+    const from = dragIdx.current;
+    if (from === null || from === i) { setDragOver(null); return; }
+    const newList = [...estados];
+    const [moved] = newList.splice(from, 1);
+    newList.splice(i, 0, moved);
+    setEstados(newList);
+    setDragOver(null);
+    dragIdx.current = null;
+    await fetch("/api/ot/estados-custom", {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ orden: newList.map(e => e.id) }),
+    });
+  }
+
+  function onDragEnd() {
+    setDragOver(null);
+    dragIdx.current = null;
+  }
+
+  return (
+    <div className="ot-config-wrap">
       <div className="ui-card">
         <div className="ui-card__header">
           <div className="ui-card__title">
@@ -72,46 +93,43 @@ export default function TabConfiguracion() {
             Estados personalizados del ciclo
           </div>
         </div>
-        <div className="ui-card__body" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div className="ui-card__body">
 
-          <p style={{ fontSize: 13, color: "var(--sub)", margin: 0 }}>
-            Definí etapas adicionales para el ciclo de reparación. Estos estados aparecerán
-            disponibles al gestionar una orden de trabajo.
+          <p className="ot-config-desc">
+            Definí etapas adicionales para el ciclo de reparación.
+            Arrastrá para reordenar. Máximo {MAX_ESTADOS} estados.
           </p>
 
-          {/* Lista de estados */}
           {loading ? (
-            <div style={{ fontSize: 13, color: "var(--muted)" }}>
-              <i className="bi bi-arrow-repeat" style={{ marginRight: 6 }} />Cargando…
+            <div className="ui-empty">
+              <div className="ui-empty__icon"><i className="bi bi-arrow-repeat" /></div>
+              <div className="ui-empty__text">Cargando…</div>
             </div>
           ) : estados.length === 0 ? (
-            <div className="ui-empty" style={{ padding: "20px 0" }}>
+            <div className="ui-empty">
               <div className="ui-empty__icon"><i className="bi bi-diagram-3" /></div>
               <div className="ui-empty__text">Sin estados personalizados</div>
               <div className="ui-empty__sub">Agregá el primero desde el formulario de abajo</div>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {estados.map(est => (
-                <div key={est.id} style={{
-                  display: "flex", alignItems: "center", gap: 12,
-                  background: "var(--bg-soft)", borderRadius: 10, padding: "10px 14px",
-                  border: "1px solid var(--border)",
-                }}>
-                  <span style={{
-                    width: 12, height: 12, borderRadius: "50%",
-                    background: est.color, flexShrink: 0,
-                    boxShadow: `0 0 0 3px ${est.color}28`,
-                  }} />
-                  <span style={{ flex: 1, fontWeight: 600, fontSize: 14, color: "var(--text)" }}>
-                    {est.nombre}
-                  </span>
+            <div className="ot-state-list">
+              {estados.map((est, i) => (
+                <div
+                  key={est.id}
+                  className={`ot-state-item${dragOver === i ? " ot-state-item--over" : ""}`}
+                  draggable
+                  onDragStart={() => onDragStart(i)}
+                  onDragOver={e => onDragOver(e, i)}
+                  onDrop={() => onDrop(i)}
+                  onDragEnd={onDragEnd}
+                >
+                  <i className="bi bi-grip-vertical ot-state-item__grip" />
+                  <span className="ot-state-item__name">{est.nombre}</span>
                   <button
                     className="ui-btn ui-btn--secondary ui-btn--sm"
-                    style={{ padding: "3px 10px", fontSize: 12 }}
                     onClick={() => eliminar(est.id)}
                     disabled={deletingId === est.id}
-                    title="Eliminar estado"
+                    title="Eliminar"
                   >
                     {deletingId === est.id
                       ? <i className="bi bi-arrow-repeat" />
@@ -122,14 +140,10 @@ export default function TabConfiguracion() {
             </div>
           )}
 
-          {/* Formulario agregar */}
-          <form onSubmit={agregar} style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".07em" }}>
-              Agregar estado
-            </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-              <div className="ui-field" style={{ flex: 1, minWidth: 180, margin: 0 }}>
-                <label className="ui-label">Nombre del estado</label>
+          {estados.length < MAX_ESTADOS ? (
+            <form className="ot-config-form" onSubmit={agregar}>
+              <div className="ui-field">
+                <label className="ui-label">Nuevo estado</label>
                 <input
                   className="ui-input"
                   placeholder="Ej: En espera de repuesto"
@@ -138,51 +152,32 @@ export default function TabConfiguracion() {
                   required
                 />
               </div>
-              <div className="ui-field" style={{ margin: 0 }}>
-                <label className="ui-label">Color</label>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  {COLORES.map(c => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      title={c.label}
-                      onClick={() => setColor(c.value)}
-                      style={{
-                        width: 22, height: 22, borderRadius: "50%",
-                        background: c.value, border: "none", cursor: "pointer",
-                        outline: color === c.value ? `3px solid ${c.value}` : "none",
-                        outlineOffset: 2,
-                        boxShadow: color === c.value ? `0 0 0 2px var(--surface)` : "none",
-                        transition: "all .15s",
-                      }}
-                    />
-                  ))}
-                </div>
+              {msg && (
+                <span className={msg.includes("✓") ? "ot-config-msg--ok" : "ot-config-msg--err"}>
+                  {msg}
+                </span>
+              )}
+              <div>
+                <button
+                  type="submit"
+                  className="ui-btn ui-btn--primary ui-btn--sm"
+                  disabled={guardando || !nombre.trim()}
+                >
+                  {guardando
+                    ? <><i className="bi bi-arrow-repeat" style={{ marginRight: 4 }} />Guardando…</>
+                    : <><i className="bi bi-plus-lg" style={{ marginRight: 4 }} />Agregar estado</>}
+                </button>
               </div>
+            </form>
+          ) : (
+            <div className="ot-config-max">
+              <i className="bi bi-info-circle" />
+              Límite de {MAX_ESTADOS} estados alcanzado. Eliminá uno para agregar otro.
             </div>
-
-            {msg && (
-              <div style={{ fontSize: 13, color: msg.includes("✓") ? "#059669" : "#dc2626" }}>
-                {msg}
-              </div>
-            )}
-
-            <div>
-              <button
-                type="submit"
-                className="ui-btn ui-btn--primary ui-btn--sm"
-                disabled={guardando || !nombre.trim()}
-              >
-                {guardando
-                  ? <><i className="bi bi-arrow-repeat" style={{ marginRight: 6 }} />Guardando…</>
-                  : <><i className="bi bi-plus-lg" style={{ marginRight: 6 }} />Agregar estado</>}
-              </button>
-            </div>
-          </form>
+          )}
 
         </div>
       </div>
-
     </div>
   );
 }
