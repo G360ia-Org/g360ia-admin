@@ -2,11 +2,10 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/modulos-db';
 
 const ALLOWED = [
-  'nombre_comercial','nombre_corto','razon_social','slogan',
+  'nombre_comercial','nombre_corto','razon_social','slogan','rubro',
   'logo_url','portada_url','video_url',
-  'color_primario','color_secundario','color_fondo','color_acento',
   'calle','piso_dpto','barrio','localidad','provincia','codigo_postal','pais',
-  'maps_url','latitud','longitud',
+  'maps_url',
   'telefono_principal','telefono_secundario','whatsapp',
   'email_contacto','email_admin','sitio_web',
 ];
