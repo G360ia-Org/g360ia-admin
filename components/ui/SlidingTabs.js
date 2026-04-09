@@ -11,22 +11,27 @@ import { useRef, useLayoutEffect, useState } from "react";
  *   onTabChange (id) => void          — callback al cambiar tab
  *   children    ReactNode[]           — paneles en el mismo orden que tabs[]
  *   flushIds    string[]              — ids de tabs cuyo panel va sin padding (opcional)
+ *   variant     "sliding" | "pill"    — estilo de tabs (default: "sliding")
  */
-export default function SlidingTabs({ tabs, activeTab, onTabChange, children, flushIds = [] }) {
+export default function SlidingTabs({ tabs, activeTab, onTabChange, children, flushIds = [], variant = "sliding" }) {
   const tabRefs = useRef({});
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
 
   useLayoutEffect(() => {
-    const el = tabRefs.current[activeTab];
-    if (el) setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
-  }, [activeTab]);
+    if (variant !== "pill") {
+      const el = tabRefs.current[activeTab];
+      if (el) setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
+    }
+  }, [activeTab, variant]);
 
   const panels  = Array.isArray(children) ? children : [children];
   const activeIndex = tabs.findIndex(t => t.id === activeTab);
 
+  const tabsClass = variant === "pill" ? "ui-tabs ui-tabs--pill" : "ui-tabs ui-tabs--sliding";
+
   return (
     <>
-      <div className="ui-tabs ui-tabs--sliding">
+      <div className={tabsClass}>
         {tabs.map(t => (
           <div
             key={t.id}
@@ -37,10 +42,12 @@ export default function SlidingTabs({ tabs, activeTab, onTabChange, children, fl
             <i className={`bi ${t.icon}`} /> {t.label}
           </div>
         ))}
-        <span
-          className="ui-tab-indicator"
-          style={{ left: indicator.left, width: indicator.width }}
-        />
+        {variant !== "pill" && (
+          <span
+            className="ui-tab-indicator"
+            style={{ left: indicator.left, width: indicator.width }}
+          />
+        )}
       </div>
 
       <div className="mod-tab-slider">
