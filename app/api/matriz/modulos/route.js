@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import rubrosDb from "@/lib/rubros-db";
+import pool from "@/lib/db";
 
 function guardAdmin(session) {
   return session?.user?.rol === "superadmin";
@@ -12,7 +12,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   if (!guardAdmin(session)) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
-  const [rows] = await rubrosDb.query("SELECT * FROM modulos ORDER BY id");
+  const [rows] = await pool.query("SELECT * FROM modulos ORDER BY id");
   return NextResponse.json({ ok: true, modulos: rows });
 }
 
@@ -24,6 +24,6 @@ export async function PUT(request) {
   const { id, grupo } = await request.json();
   if (!id) return NextResponse.json({ ok: false, error: "id requerido" }, { status: 400 });
 
-  await rubrosDb.query("UPDATE modulos SET grupo = ? WHERE id = ?", [grupo ?? null, id]);
+  await pool.query("UPDATE modulos SET grupo = ? WHERE id = ?", [grupo ?? null, id]);
   return NextResponse.json({ ok: true });
 }

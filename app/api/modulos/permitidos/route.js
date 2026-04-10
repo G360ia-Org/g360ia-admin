@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import modDb    from "@/lib/modulos-db";
-import rubrosDb from "@/lib/rubros-db";
+import pool from "@/lib/db";
 
 // Metadata visual de cada módulo (icon + label para el sidebar)
 const META = {
@@ -21,10 +20,8 @@ export async function GET() {
   try {
     // Superadmin ve todos los módulos — intenta obtener grupo desde DB, fallback a lista fija
     if (session.user.rol === "superadmin") {
-      let grupoMap = {};
       try {
-        const [mods] = await rubrosDb.query("SELECT nombre, grupo FROM modulos WHERE activo = 1 ORDER BY id");
-        // Si la query devuelve filas, armamos el mapa de grupos
+        const [mods] = await pool.query("SELECT nombre, grupo FROM modulos WHERE activo = 1 ORDER BY id");
         if (mods.length > 0) {
           return NextResponse.json(
             mods.map(m => ({
@@ -35,22 +32,22 @@ export async function GET() {
             }))
           );
         }
-      } catch { /* columna grupo no existe aún o error de conexión — usar fallback */ }
+      } catch { /* columna grupo no existe aún o error — usar fallback */ }
 
       return NextResponse.json(
         MODULOS_SUPERADMIN.map(slug => ({
           slug,
           label: META[slug]?.label ?? slug,
           icon:  META[slug]?.icon  ?? "bi-box",
-          grupo: grupoMap[slug] ?? null,
+          grupo: null,
         }))
       );
     }
 
-    // Resto de usuarios: módulos activos en mtz_* según su tenant
+    // Resto de usuarios: módulos activos según su tenant
     if (!session.user.tenant_id) return NextResponse.json([]);
 
-    const [rows] = await modDb.query(`
+    const [rows] = await pool.query(`
       SELECT m.nombre
       FROM mtz_rubros_modulos rm
       JOIN mtz_rubros  r ON r.id = rm.rubro_id
@@ -59,14 +56,14 @@ export async function GET() {
       ORDER BY m.nombre
     `, [session.user.tenant_id]);
 
-    // Obtener grupo de cada módulo desde rubros_molde (best-effort)
+    // Obtener grupo de cada módulo (best-effort)
     const nombres = rows.map(r => r.nombre);
     const grupoMap = {};
     if (nombres.length > 0) {
       try {
         const placeholders = nombres.map(() => "?").join(",");
-        const [grupoRows] = await rubrosDb.query(
-          `SELECT nombre, grupo FROM modulos WHERE nombre IN (${placeholders})`,
+        const [grupoRows] = await pool.query(
+          `SELECT nombre, grupo FROM mtz_modulos WHERE nombre IN (${placeholders})`,
           nombres
         );
         for (const r of grupoRows) grupoMap[r.nombre] = r.grupo;

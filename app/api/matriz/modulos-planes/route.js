@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import modDb from "@/lib/modulos-db";
+import pool from "@/lib/db";
 
 function guardAdmin(session) {
   return session?.user?.rol === "superadmin";
 }
 
-// GET /api/adm-rubros/modulos-planes?modulo=crm
 export async function GET(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
@@ -17,15 +16,13 @@ export async function GET(request) {
   const modulo = searchParams.get("modulo");
   if (!modulo) return NextResponse.json({ ok: false, error: "Falta modulo" }, { status: 400 });
 
-  const [rows] = await modDb.query(
+  const [rows] = await pool.query(
     "SELECT id, plan, precio, activo FROM modulos_planes WHERE modulo = ? ORDER BY id",
     [modulo]
   );
   return NextResponse.json({ ok: true, planes: rows });
 }
 
-// PUT /api/adm-rubros/modulos-planes
-// body: { id, precio }
 export async function PUT(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
@@ -35,7 +32,7 @@ export async function PUT(request) {
   if (id === undefined || precio === undefined)
     return NextResponse.json({ ok: false, error: "Faltan campos" }, { status: 400 });
 
-  await modDb.query(
+  await pool.query(
     "UPDATE modulos_planes SET precio = ? WHERE id = ?",
     [precio, id]
   );

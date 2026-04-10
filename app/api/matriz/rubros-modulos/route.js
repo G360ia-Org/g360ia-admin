@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import rubrosDb from "@/lib/rubros-db";
+import pool from "@/lib/db";
 
 function guardAdmin(session) {
   return session?.user?.rol === "superadmin";
@@ -12,7 +12,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   if (!guardAdmin(session)) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
-  const [rows] = await rubrosDb.query(`
+  const [rows] = await pool.query(`
     SELECT
       rm.rubro_id, rm.modulo_id, rm.plan_minimo,
       r.nombre AS rubro_nombre,
@@ -34,7 +34,7 @@ export async function POST(request) {
   if (!rubro_id || !modulo_id || !plan_minimo)
     return NextResponse.json({ ok: false, error: "Faltan campos requeridos" }, { status: 400 });
 
-  await rubrosDb.query(
+  await pool.query(
     "INSERT INTO rubros_modulos (rubro_id, modulo_id, plan_minimo) VALUES (?, ?, ?)",
     [rubro_id, modulo_id, plan_minimo]
   );
@@ -52,7 +52,7 @@ export async function DELETE(request) {
   if (!rubro_id || !modulo_id)
     return NextResponse.json({ ok: false, error: "Faltan parámetros" }, { status: 400 });
 
-  await rubrosDb.query(
+  await pool.query(
     "DELETE FROM rubros_modulos WHERE rubro_id = ? AND modulo_id = ?",
     [rubro_id, modulo_id]
   );
