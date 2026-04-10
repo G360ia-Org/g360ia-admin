@@ -38,7 +38,6 @@ export default function MiNegocioModule({ ctx }) {
   const [saveTrigger, setSaveTrigger]       = useState(0);
   const [discardTrigger, setDiscardTrigger] = useState(0);
   const [toast, setToast]                   = useState(null);
-  const [completitud, setCompletitud]       = useState(0);
   const [lastSaved, setLastSaved]           = useState(null);
   const [indicator, setIndicator]           = useState({ left: 0, width: 0 });
   const tabsRef = useRef(null);
@@ -95,29 +94,8 @@ export default function MiNegocioModule({ ctx }) {
     ? 'Último guardado: hace menos de 1 min'
     : `Último guardado: hace ${minutosDesdeGuardado} min`;
 
-  const iaPillText = completitud < 50
-    ? 'Completá el perfil para mejorar las respuestas del asistente y el bot de WhatsApp'
-    : completitud < 80
-    ? `Perfil al ${completitud}% — seguí completando para mejores respuestas de IA`
-    : `Perfil completo al ${completitud}% — tu asistente IA está bien configurado`;
-
   return (
     <div className="neg-module-wrap">
-
-      {/* Topbar */}
-      <div className="mod-topbar">
-        <span className="mod-topbar__title">Mi Negocio</span>
-        <span className="mod-topbar__sep">|</span>
-        <span className="mod-topbar__sub">Información del negocio</span>
-        <div className="ia-pill">
-          <i className="bi bi-stars ia-pill__icon" />
-          <span className="ia-pill__label">IA</span>
-          <span className="ia-pill__text">{iaPillText}</span>
-        </div>
-        <button className="tb-btn tb-btn--primary" onClick={handleSave}>
-          <i className="bi bi-floppy" /> Guardar cambios
-        </button>
-      </div>
 
       {/* Barra de tabs con indicador deslizante */}
       <div
@@ -155,7 +133,6 @@ export default function MiNegocioModule({ ctx }) {
                   discardTrigger={isActive ? discardTrigger : 0}
                   onSaveResult={isActive ? handleSaveResult : NOOP}
                   onDiscardResult={isActive ? handleDiscardResult : NOOP}
-                  onCompletitudChange={t.id === 'identidad' ? setCompletitud : undefined}
                 />
               </div>
             );
