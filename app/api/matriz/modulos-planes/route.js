@@ -17,8 +17,12 @@ export async function GET(request) {
   if (!modulo) return NextResponse.json({ ok: false, error: "Falta modulo" }, { status: 400 });
 
   const [rows] = await pool.query(
-    "SELECT id, plan, precio, activo FROM modulos_planes WHERE modulo = ? ORDER BY id",
-    [modulo]
+    `SELECT id, plan, precio, activo
+     FROM modulos_planes
+     WHERE modulo = ?
+        OR LOWER(REPLACE(REPLACE(modulo, '-', ' '), '_', ' ')) = LOWER(?)
+     ORDER BY id`,
+    [modulo, modulo]
   );
   return NextResponse.json({ ok: true, planes: rows });
 }

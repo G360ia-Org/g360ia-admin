@@ -154,14 +154,6 @@ export default function TabModulos() {
     </div>
   );
 
-  // Agrupar módulos por grupo
-  const grupos = {};
-  for (const m of modulos) {
-    const g = m.grupo ?? "Sin grupo";
-    if (!grupos[g]) grupos[g] = [];
-    grupos[g].push(m);
-  }
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
@@ -171,32 +163,25 @@ export default function TabModulos() {
           <span className="ui-card__title">Módulos y grupos</span>
           <span className="mod-sub">Asigná cada módulo a un grupo — impacta en el sidebar de cada cliente</span>
         </div>
-        <div className="ui-card__body" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div className="ui-card__body">
           {modulos.length === 0 ? (
             <div className="ui-empty">
               <i className="bi bi-box-seam ui-empty__icon" />
               <div className="ui-empty__text">Sin módulos registrados</div>
               <div className="ui-empty__sub">Insertá módulos en db_rubros_molde.modulos para comenzar.</div>
             </div>
-          ) : Object.entries(grupos).map(([grupo, mods]) => (
-            <div key={grupo}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--sub)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                <i className="bi bi-collection" style={{ fontSize: 11 }} />
-                {grupo}
-                <span style={{ fontWeight: 400, opacity: 0.6 }}>({mods.length})</span>
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                {mods.map(m => (
-                  <ModuloCard
-                    key={m.id}
-                    modulo={m}
-                    gruposExistentes={gruposExistentes}
-                    onGuardar={guardarGrupo}
-                  />
-                ))}
-              </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 12 }}>
+              {modulos.map(m => (
+                <ModuloCard
+                  key={m.id}
+                  modulo={m}
+                  gruposExistentes={gruposExistentes}
+                  onGuardar={guardarGrupo}
+                />
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </div>
 
