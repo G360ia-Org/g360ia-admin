@@ -16,9 +16,14 @@ export async function GET(request) {
   const modulo = searchParams.get("modulo");
   if (!modulo) return NextResponse.json({ ok: false, error: "Falta modulo" }, { status: 400 });
 
+  // Acepta tanto el nombre exacto como el slug (ej: "Mi Negocio" o "mi-negocio")
   const [rows] = await pool.query(
-    "SELECT id, slug, nombre, descripcion, plan_minimo, activo FROM modulos_herramientas WHERE modulo = ? ORDER BY id",
-    [modulo]
+    `SELECT id, slug, nombre, descripcion, plan_minimo, activo
+     FROM modulos_herramientas
+     WHERE modulo = ?
+        OR LOWER(REPLACE(REPLACE(modulo, '-', ' '), '_', ' ')) = LOWER(?)
+     ORDER BY id`,
+    [modulo, modulo]
   );
   return NextResponse.json({ ok: true, herramientas: rows });
 }
